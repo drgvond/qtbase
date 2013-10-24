@@ -227,7 +227,22 @@ static QTouchDevice *touchDevice = 0;
 - (void)updateGeometry
 {
     QRect geometry;
-    if (m_platformWindow->m_nsWindow) {
+
+    if (m_platformWindow->m_isNSWindowChild) {
+         return;
+#if 0
+        //geometry = qt_mac_toQRect([self frame]);
+        qDebug() << "nsview updateGeometry" << m_platformWindow->window();
+        QRect screenRect = qt_mac_toQRect([m_platformWindow->m_nsWindow convertRectToScreen:[self frame]]);
+        qDebug() << "screenRect" << screenRect;
+
+        screenRect.moveTop(qt_mac_flipYCoordinate(screenRect.y() + screenRect.height()));
+        geometry = QRect(m_platformWindow->window()->parent()->mapFromGlobal(screenRect.topLeft()), screenRect.size());
+        qDebug() << "geometry" << geometry;
+#endif
+        //geometry = QRect(screenRect.origin.x, qt_mac_flipYCoordinate(screenRect.origin.y + screenRect.size.height), screenRect.size.width, screenRect.size.height);
+    } else if (m_platformWindow->m_nsWindow) {
+
         // top level window, get window rect and flip y.
         NSRect rect = [self frame];
         NSRect windowRect = [[self window] frame];
