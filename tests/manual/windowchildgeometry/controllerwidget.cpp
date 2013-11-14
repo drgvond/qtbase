@@ -56,10 +56,10 @@
 
 CoordinateControl::CoordinateControl(const QString &sep) : m_x(new QSpinBox), m_y(new QSpinBox)
 {
-    m_x->setMinimum(0);
+    m_x->setMinimum(-2000);
     m_x->setMaximum(2000);
     connect(m_x, SIGNAL(valueChanged(int)), this, SLOT(spinBoxChanged()));
-    m_y->setMinimum(0);
+    m_y->setMinimum(-2000);
     m_y->setMaximum(2000);
     connect(m_y, SIGNAL(valueChanged(int)), this, SLOT(spinBoxChanged()));
     QHBoxLayout *l = new QHBoxLayout(this);
