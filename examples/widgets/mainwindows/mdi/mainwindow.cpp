@@ -207,6 +207,7 @@ MdiChild *MainWindow::createMdiChild()
 {
     MdiChild *child = new MdiChild;
     mdiArea->addSubWindow(child);
+    child->winId();
 
 #ifndef QT_NO_CLIPBOARD
     connect(child, SIGNAL(copyAvailable(bool)),

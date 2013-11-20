@@ -102,7 +102,23 @@ static bool isMouseEvent(NSEvent *ev)
 }
 @end
 
+void printWindowHierarchy(NSWindow *win, int indent = 0)
+{
+    NSString *spaces = [@"" stringByPaddingToLength:indent withString:@" " startingAtIndex:0];
+    NSLog(@"%@%@ %@", spaces, win, NSStringFromRect(win.frame));
+    for (NSWindow *child in win.childWindows)
+        printWindowHierarchy(child, indent + 4);
+}
+
 @implementation QNSWindow
+
+- (NSString *)description
+{
+    NSString *sd = [super description];
+    NSString *qWindowName = QCFString::toNSString(m_cocoaPlatformWindow && m_cocoaPlatformWindow->window() ?
+                                                      m_cocoaPlatformWindow->window()->objectName() : "<null>");
+    return [NSString stringWithFormat:@"%@ '%@'", sd, qWindowName];
+}
 
 - (BOOL)canBecomeKeyWindow
 {
@@ -152,6 +168,14 @@ static bool isMouseEvent(NSEvent *ev)
 @end
 
 @implementation QNSPanel
+
+- (NSString *)description
+{
+    NSString *sd = [super description];
+    NSString *qWindowName = QCFString::toNSString(m_cocoaPlatformWindow && m_cocoaPlatformWindow->window() ?
+                                                      m_cocoaPlatformWindow->window()->objectName() : "<null>");
+    return [NSString stringWithFormat:@"%@ \"%@\"", sd, qWindowName];
+}
 
 - (BOOL)canBecomeKeyWindow
 {
@@ -295,15 +319,15 @@ void QCocoaWindow::setCocoaGeometry(const QRect &rect)
     }
 
     if (m_isNSWindowChild) {
-        qDebug() << "setGeometry" << window() << "parent" << [m_nsWindow parentWindow] << "rect" <<  rect;
-        QRect globalRect = QRect(window()->mapToGlobal(QPoint(0,0)), rect.size());
+        qDebug() << "setGeometry" << window() << "parent" << QString::fromNSString([m_nsWindow.parentWindow description]) << "rect" <<  rect;
+        QPlatformWindow::setGeometry(rect);
+        QRect globalRect = QRect(window()->mapToGlobal(QPoint()), rect.size());
         qDebug() << "global rect" << globalRect;
         NSRect bounds = qt_mac_flipRect(globalRect, window());
         qDebug() << "bounds" << bounds.origin.x << bounds.origin.y << bounds.size.width << bounds.size.height;
         [m_nsWindow setFrame:bounds display:YES animate:NO];
 
         // call this here: updateGeometry in qnsview.mm is a no-op for this case
-        QPlatformWindow::setGeometry(rect);
         QWindowSystemInterface::handleExposeEvent(window(), rect);
     } else if (m_nsWindow) {
         NSRect bounds = qt_mac_flipRect(rect, window());
@@ -317,6 +341,10 @@ void QCocoaWindow::setCocoaGeometry(const QRect &rect)
 
 void QCocoaWindow::setVisible(bool visible)
 {
+    if (m_isNSWindowChild) {
+        qDebug() << "setting visible to" << visible << "parent" << QString::fromNSString([m_nsWindow.parentWindow description]);
+    }
+
     QCocoaAutoReleasePool pool;
     QCocoaWindow *parentCocoaWindow = 0;
     if (window()->transientParent())
@@ -755,7 +783,6 @@ void QCocoaWindow::setParent(const QPlatformWindow *parentWindow)
 {
     // recreate the window for compatibility
     bool unhideAfterRecreate = parentWindow && !m_contentViewIsToBeEmbedded && ![m_contentView isHidden];
-    m_isNSWindowChild = (parentWindow != 0);
     recreateWindow(parentWindow);
     if (unhideAfterRecreate)
         [m_contentView setHidden:NO];
@@ -860,6 +887,8 @@ void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
         m_nsWindowDelegate = 0;
     }
 
+    m_isNSWindowChild = (parentWindow != 0);
+
     if (m_contentViewIsToBeEmbedded) {
         // An embedded window doesn't have its own NSWindow.
     } else if (!parentWindow) {
@@ -881,12 +910,12 @@ void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
         setNSWindow(m_nsWindow);
 
         qDebug() << "child window" << window();
-        qDebug() << "child nswindow" << m_nsWindow;
+        qDebug() << "child nswindow" << QString::fromNSString([m_nsWindow description]);
 
         const QCocoaWindow *parentCococaWindow = static_cast<const QCocoaWindow *>(parentWindow);
 
         qDebug() << "parent window" << parentWindow->window();
-        qDebug() << "parent nswindow" << parentCococaWindow->m_nsWindow;
+        qDebug() << "parent nswindow" << QString::fromNSString([parentCococaWindow->m_nsWindow description]);
         qDebug() << "";
 
 
