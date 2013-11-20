@@ -613,16 +613,41 @@ void QCocoaWindow::raise()
     // ### handle spaces (see Qt 4 raise_sys in qwidget_mac.mm)
     if (!m_nsWindow)
         return;
-    if ([m_nsWindow isVisible])
-        [m_nsWindow orderFront: m_nsWindow];
+    if ([m_nsWindow isVisible]) {
+        if (m_isNSWindowChild) {
+            // -[NSWindow orderFront:] doesn't work with attached windows.
+            // The only solution is to remove and add the child window.
+            // This will place it on top of all the other NSWindows.
+            NSWindow *parent = m_nsWindow.parentWindow;
+            [parent removeChildWindow:m_nsWindow];
+            [parent addChildWindow:m_nsWindow ordered:NSWindowAbove];
+        } else {
+            [m_nsWindow orderFront: m_nsWindow];
+        }
+    }
 }
 
 void QCocoaWindow::lower()
 {
     if (!m_nsWindow)
         return;
-    if ([m_nsWindow isVisible])
-        [m_nsWindow orderBack: m_nsWindow];
+    if ([m_nsWindow isVisible]) {
+        if (m_isNSWindowChild) {
+            // -[NSWindow orderBack:] doesn't work with attached windows.
+            // The only solution is to remove and add all the child windows except this one.
+            // This will keep the current window at the bottom while adding the others on top of it,
+            // hopefully in the same order (this is not documented anywhere in the Cocoa documentation).
+            NSWindow *parent = m_nsWindow.parentWindow;
+            NSArray *children = [parent.childWindows copy];
+            for (NSWindow *child in children)
+                if (m_nsWindow != child) {
+                    [parent removeChildWindow:child];
+                    [parent addChildWindow:child ordered:NSWindowAbove];
+                }
+        } else {
+            [m_nsWindow orderBack: m_nsWindow];
+        }
+    }
 }
 
 bool QCocoaWindow::isExposed() const
