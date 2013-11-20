@@ -898,17 +898,6 @@ UnixMakefileGenerator::defaultInstall(const QString &t)
                 ret += installMetaFile(ProKey("QMAKE_" + type.toUpper() + "_INSTALL_REPLACE"), src_meta, dst_meta);
             }
         }
-
-        if(!project->isEmpty("QMAKE_BUNDLE")) {
-            QString plain_targ = filePrefixRoot(root, fileFixify(targetdir + target, FileFixifyAbsolute));
-            QStringList frameworkLinks;
-            frameworkLinks << "/Headers" << "/Resources";
-            for (int i = 0; i < frameworkLinks.size(); ++i) {
-                QString dest = plain_targ + frameworkLinks[i];
-                ret += "\n\t-$(DEL_FILE) " + dest + "\n\t"
-                        + varGlue("QMAKE_LN_SHLIB", "-", " ", " Versions/Current" + frameworkLinks[i] + " " + dest);
-            }
-        }
     }
     return ret;
 }

@@ -554,18 +554,11 @@ UnixMakefileGenerator::writeMakeParts(QTextStream &t)
               << mkdir_p_asstring("\"`dirname $(DESTDIR)$(TARGETD)`\"", false) << "\n\t"
               << "-$(MOVE) $(TARGET) $(DESTDIR)$(TARGETD)\n\t"
               << mkdir_p_asstring("\"`dirname $(DESTDIR)$(TARGET0)`\"", false) << "\n\t"
-              << "-$(DEL_FILE) " << currentLink << "\n\t"
-              << varGlue("QMAKE_LN_SHLIB","-"," ", " " + project->first("QMAKE_FRAMEWORK_VERSION") +
-                         " " + currentLink) << "\n\t"
-              << "-$(DEL_FILE) $(DESTDIR)$(TARGET0) \n\t"
               << varGlue("QMAKE_LN_SHLIB", "-", " ",
                          " Versions/Current/$(TARGET) $(DESTDIR)$(TARGET0)") << "\n\t"
-              << "-$(DEL_FILE) `dirname $(DESTDIR)$(TARGET0)`/Resources \n\t"
-              << varGlue("QMAKE_LN_SHLIB", "-", " ",
-                         " Versions/Current/Resources `dirname $(DESTDIR)$(TARGET0)`/Resources") << "\n\t"
-              << "-$(DEL_FILE) `dirname $(DESTDIR)$(TARGET0)`/Headers \n\t"
-              << varGlue("QMAKE_LN_SHLIB", "-", " ",
-                         " Versions/Current/Headers `dirname $(DESTDIR)$(TARGET0)`/Headers") << "\n\t";
+              << "-$(DEL_FILE) " << currentLink << "\n\t"
+              << varGlue("QMAKE_LN_SHLIB","-"," ", " " + project->first("QMAKE_FRAMEWORK_VERSION") +
+                         " " + currentLink) << "\n\t";
             if(!project->isEmpty("QMAKE_POST_LINK"))
                 t << "\n\t" << var("QMAKE_POST_LINK");
             t << endl << endl;
@@ -771,7 +764,7 @@ UnixMakefileGenerator::writeMakeParts(QTextStream &t)
                     bundledFiles << link;
                     t << link << ": \n\t"
                       << mkdir_p_asstring(path) << "\n\t"
-                      << "@$(SYMLINK) " << project->first(vkey) + "/Current/" << project->first(pkey) << " " << path << endl;
+                      << "@$(SYMLINK) " << version << project->first(pkey) << " " << path << endl;
                     path += version;
                 }
                 path += project->first(pkey).toQString();
@@ -1239,19 +1232,17 @@ void UnixMakefileGenerator::init2()
     }
 
     if(!project->isEmpty("QMAKE_BUNDLE")) {
-        bool isApp = project->first("TEMPLATE") == "app";
         QString plist = fileFixify(project->first("QMAKE_INFO_PLIST").toQString(), qmake_getpwd());
         if(plist.isEmpty())
             plist = specdir() + QDir::separator() + "Info.plist." + project->first("TEMPLATE");
         if(exists(Option::fixPathToLocalOS(plist))) {
             if(project->isEmpty("QMAKE_INFO_PLIST"))
                 project->values("QMAKE_INFO_PLIST").append(plist);
-            project->values("QMAKE_INFO_PLIST_OUT").append(
-                        project->first("DESTDIR") + project->first("QMAKE_BUNDLE")
-                        + (isApp ? "/Contents/Info.plist"
-                                 : "/Versions/" + project->first("QMAKE_FRAMEWORK_VERSION") + "/Resources/Info.plist"));
+            project->values("QMAKE_INFO_PLIST_OUT").append(project->first("DESTDIR") +
+                                                                project->first("QMAKE_BUNDLE") +
+                                                                "/Contents/Info.plist");
             project->values("ALL_DEPS") += project->first("QMAKE_INFO_PLIST_OUT");
-            if (!project->isEmpty("ICON") && isApp)
+            if(!project->isEmpty("ICON") && project->first("TEMPLATE") == "app")
                 project->values("ALL_DEPS") += project->first("DESTDIR") +
                                                     project->first("QMAKE_BUNDLE") +
                                                     "/Contents/Resources/" + project->first("ICON").toQString().section('/', -1);
