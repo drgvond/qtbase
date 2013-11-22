@@ -250,10 +250,6 @@ QCocoaWindow::QCocoaWindow(QWindow *tlw)
 #endif
     QCocoaAutoReleasePool pool;
 
-    if (tlw->parent()) {
-        m_isNSWindowChild = true; // ### read env. variable to switch on new behavior.
-    }
-
     if (tlw->type() == Qt::ForeignWindow) {
         NSView *foreignView = (NSView *)WId(tlw->property("_q_foreignWinId").value<WId>());
         setContentView(foreignView);
@@ -931,6 +927,7 @@ void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
         m_nsWindowDelegate = 0;
     }
 
+    // ### read env. variable to switch on new behavior.
     m_isNSWindowChild = (parentWindow != 0);
 
     if (m_contentViewIsToBeEmbedded) {
