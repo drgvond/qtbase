@@ -339,6 +339,7 @@ void QCocoaWindow::setCocoaGeometry(const QRect &rect)
         [m_nsWindow setFrame:bounds display:YES animate:NO];
 
         // call this here: updateGeometry in qnsview.mm is a no-op for this case
+        QWindowSystemInterface::handleGeometryChange(window(), rect);
         QWindowSystemInterface::handleExposeEvent(window(), rect);
     } else if (m_nsWindow) {
         NSRect bounds = qt_mac_flipRect(rect, window());
