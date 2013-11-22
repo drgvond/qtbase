@@ -452,6 +452,12 @@ void QCocoaWindow::setVisible(bool visible)
                 } else if ([m_nsWindow canBecomeKeyWindow]) {
                     [m_nsWindow makeKeyAndOrderFront:nil];
                 } else {
+                    if (m_isNSWindowChild && window()->parent()) {
+                        QCocoaWindow *parentWindow = static_cast<QCocoaWindow *>(window()->parent()->handle());
+                        setCocoaGeometry(window()->geometry());
+                        [parentWindow->m_nsWindow addChildWindow:m_nsWindow ordered:NSWindowAbove];
+                        qDebug() << "added back" << m_nsWindow.parentWindow;
+                    }
                     [m_nsWindow orderFront: nil];
                 }
 
@@ -962,8 +968,8 @@ void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
         qDebug() << "";
 
 
-        [parentCococaWindow->m_nsWindow addChildWindow:m_nsWindow ordered:NSWindowAbove];
         setCocoaGeometry(window()->geometry());
+        [parentCococaWindow->m_nsWindow addChildWindow:m_nsWindow ordered:NSWindowAbove];
     } else {
         // Child windows have no NSWindow, link the NSViews instead.
         const QCocoaWindow *parentCococaWindow = static_cast<const QCocoaWindow *>(parentWindow);
