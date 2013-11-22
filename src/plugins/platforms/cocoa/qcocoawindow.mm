@@ -122,9 +122,14 @@ void printWindowHierarchy(NSWindow *win, int indent = 0)
 
 - (BOOL)canBecomeKeyWindow
 {
-    // The default implementation returns NO for title-bar less windows,
-    // override and return yes here to make sure popup windows such as
-    // the combobox popup can become the key window.
+    // Prevent child NSWindows from becomming the key window in
+    // order keep the active apperance of the top-level window.
+    if (m_cocoaPlatformWindow->m_isNSWindowChild)
+        return NO;
+
+    // All other windows can become the key window. This includes
+    // popup windows such as the combobox popup, which is a title-bar
+    // less window that by default can't become key.
     return YES;
 }
 
