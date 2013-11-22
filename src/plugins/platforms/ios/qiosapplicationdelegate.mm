@@ -49,7 +49,6 @@
 @implementation QIOSApplicationDelegate
 
 @synthesize window;
-@synthesize qiosViewController;
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
@@ -57,21 +56,15 @@
     Q_UNUSED(launchOptions);
 
     self.window = [[[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]] autorelease];
-    self.qiosViewController = [[[QIOSViewController alloc] init] autorelease];
-    self.window.rootViewController = self.qiosViewController;
+    self.window.rootViewController = [[[QIOSViewController alloc] init] autorelease];
 
-#ifdef QT_DEBUG
-    self.window.backgroundColor = [UIColor cyanColor];
-#endif
-
-    [self.window makeKeyAndVisible];
+    self.window.hidden = NO;
 
     return YES;
 }
 
 - (void)dealloc
 {
-    [qiosViewController release];
     [window release];
     [super dealloc];
 }

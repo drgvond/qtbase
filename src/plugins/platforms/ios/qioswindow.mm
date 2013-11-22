@@ -105,7 +105,7 @@
         CAEAGLLayer *eaglLayer = static_cast<CAEAGLLayer *>(self.layer);
         eaglLayer.opaque = TRUE;
         eaglLayer.drawableProperties = [NSDictionary dictionaryWithObjectsAndKeys:
-            [NSNumber numberWithBool:YES], kEAGLDrawablePropertyRetainedBacking,
+            [NSNumber numberWithBool:NO], kEAGLDrawablePropertyRetainedBacking,
             kEAGLColorFormatRGBA8, kEAGLDrawablePropertyColorFormat, nil];
 
         // Set up text input
@@ -127,6 +127,32 @@
     return self;
 }
 
+- (void)willMoveToWindow:(UIWindow *)newWindow
+{
+    // UIKIt will normally set the scale factor of a view to match the corresponding
+    // screen scale factor, but views backed by CAEAGLLayers need to do this manually.
+    self.contentScaleFactor = newWindow && newWindow.screen ?
+        newWindow.screen.scale : [[UIScreen mainScreen] scale];
+
+    // FIXME: Allow the scale factor to be customized through QSurfaceFormat.
+}
+
+- (void)didAddSubview:(UIView *)subview
+{
+    if ([subview isKindOfClass:[QUIView class]])
+        self.clipsToBounds = YES;
+}
+
+- (void)willRemoveSubview:(UIView *)subview
+{
+    for (UIView *view in self.subviews) {
+        if (view != subview && [view isKindOfClass:[QUIView class]])
+            return;
+    }
+
+    self.clipsToBounds = NO;
+}
+
 - (void)layoutSubviews
 {
     // This method is the de facto way to know that view has been resized,
@@ -142,7 +168,7 @@
     QRect geometry = fromCGRect(self.frame);
     m_qioswindow->QPlatformWindow::setGeometry(geometry);
     QWindowSystemInterface::handleGeometryChange(m_qioswindow->window(), geometry);
-    QWindowSystemInterface::handleExposeEvent(m_qioswindow->window(), geometry);
+    QWindowSystemInterface::handleExposeEvent(m_qioswindow->window(), QRect(QPoint(), geometry.size()));
 
     // If we have a new size here we need to resize the FBO's corresponding buffers,
     // but we defer that to when the application calls makeCurrent.
@@ -322,6 +348,16 @@
     return nil;
 }
 
+- (UIViewController *)viewController
+{
+    id responder = self;
+    while ((responder = [responder nextResponder])) {
+        if ([responder isKindOfClass:UIViewController.class])
+            return responder;
+    }
+    return nil;
+}
+
 @end
 
 QT_BEGIN_NAMESPACE
@@ -331,19 +367,9 @@ QIOSWindow::QIOSWindow(QWindow *window)
     , m_view([[QUIView alloc] initWithQIOSWindow:this])
     , m_normalGeometry(QPlatformWindow::geometry())
     , m_windowLevel(0)
-    , m_devicePixelRatio(1.0)
 {
-    setParent(parent());
+    setParent(QPlatformWindow::parent());
     setWindowState(window->windowState());
-
-    // Retina support: get screen scale factor and set it in the content view.
-    // This will make framebufferObject() create a 2x frame buffer on retina
-    // displays. Also set m_devicePixelRatio which is used for scaling the
-    // paint device.
-    if ([[UIScreen mainScreen] respondsToSelector:@selector(scale)] == YES) {
-        m_devicePixelRatio = [[UIScreen mainScreen] scale];
-        [m_view setContentScaleFactor: m_devicePixelRatio];
-    }
 }
 
 QIOSWindow::~QIOSWindow()
@@ -388,7 +414,7 @@ void QIOSWindow::setVisible(bool visible)
         requestActivateWindow();
     } else {
         // Activate top-most visible QWindow:
-        NSArray *subviews = qiosViewController().view.subviews;
+        NSArray *subviews = m_view.viewController.view.subviews;
         for (int i = int(subviews.count) - 1; i >= 0; --i) {
             UIView *view = [subviews objectAtIndex:i];
             if (!view.hidden) {
@@ -422,19 +448,26 @@ void QIOSWindow::setWindowState(Qt::WindowState state)
     // Perhaps setting QWindow to maximized should also mean that we'll show
     // the statusbar, and vice versa for fullscreen?
 
+    if (state != Qt::WindowNoState)
+        m_normalGeometry = geometry();
+
     switch (state) {
-    case Qt::WindowMaximized:
-    case Qt::WindowFullScreen: {
-        // Since UIScreen does not take orientation into account when
-        // reporting geometry, we need to look at the top view instead:
-        CGSize fullscreenSize = m_view.window.rootViewController.view.bounds.size;
-        m_view.frame = CGRectMake(0, 0, fullscreenSize.width, fullscreenSize.height);
-        m_view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        break; }
-    default:
-        m_view.frame = toCGRect(m_normalGeometry);
-        m_view.autoresizingMask = UIViewAutoresizingNone;
+    case Qt::WindowNoState:
+        setGeometry(m_normalGeometry);
         break;
+    case Qt::WindowMaximized:
+        setGeometry(screen()->availableGeometry());
+        break;
+    case Qt::WindowFullScreen:
+        setGeometry(screen()->geometry());
+        break;
+    case Qt::WindowMinimized:
+        setGeometry(QRect());
+        break;
+    case Qt::WindowActive:
+        Q_UNREACHABLE();
+    default:
+        Q_UNREACHABLE();
     }
 }
 
@@ -444,7 +477,12 @@ void QIOSWindow::setParent(const QPlatformWindow *parentWindow)
         UIView *parentView = reinterpret_cast<UIView *>(parentWindow->winId());
         [parentView addSubview:m_view];
     } else if (isQtApplication()) {
-        [qiosViewController().view addSubview:m_view];
+        for (UIWindow *uiWindow in [[UIApplication sharedApplication] windows]) {
+            if (uiWindow.screen == static_cast<QIOSScreen *>(screen())->uiScreen()) {
+                [uiWindow.rootViewController.view addSubview:m_view];
+                break;
+            }
+        }
     }
 }
 
@@ -453,10 +491,14 @@ void QIOSWindow::requestActivateWindow()
     // Note that several windows can be active at the same time if they exist in the same
     // hierarchy (transient children). But only one window can be QGuiApplication::focusWindow().
     // Dispite the name, 'requestActivateWindow' means raise and transfer focus to the window:
-    if (!window()->isTopLevel() || blockedByModal())
+    if (blockedByModal())
         return;
 
-    raise();
+    [m_view.window makeKeyWindow];
+
+    if (window()->isTopLevel())
+        raise();
+
     QPlatformInputContext *context = QGuiApplicationPrivate::platformIntegration()->inputContext();
     static_cast<QIOSInputContext *>(context)->focusViewChanged(m_view);
     QWindowSystemInterface::handleWindowActivated(window());
@@ -522,7 +564,9 @@ void QIOSWindow::handleContentOrientationChange(Qt::ScreenOrientation orientatio
 
 qreal QIOSWindow::devicePixelRatio() const
 {
-    return m_devicePixelRatio;
+    return m_view.contentScaleFactor;
 }
+
+#include "moc_qioswindow.cpp"
 
 QT_END_NAMESPACE

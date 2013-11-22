@@ -183,7 +183,7 @@ Configure::Configure(int& argc, char** argv)
     dictionary[ "PLUGIN_MANIFESTS" ] = "yes";
     dictionary[ "DIRECTWRITE" ]     = "no";
     dictionary[ "NIS" ]             = "no";
-    dictionary[ "NEON" ]            = "no";
+    dictionary[ "NEON" ]            = "auto";
     dictionary[ "LARGE_FILE" ]      = "yes";
     dictionary[ "FONT_CONFIG" ]     = "no";
     dictionary[ "POSIX_IPC" ]       = "no";
@@ -384,7 +384,7 @@ void Configure::parseCmdLine()
             configCmdLine.clear();
             reloadCmdLine();
         } else {
-            dictionary[ "HELP" ] = "yes";
+            dictionary[ "DONE" ] = "error";
         }
         i = 0;
     }
@@ -1304,7 +1304,7 @@ void Configure::parseCmdLine()
         }
 
         else {
-            dictionary[ "HELP" ] = "yes";
+            dictionary[ "DONE" ] = "error";
             cout << "Unknown option " << configCmdLine.at(i) << endl;
             break;
         }
@@ -1324,7 +1324,7 @@ void Configure::parseCmdLine()
 
     if (dictionary["QMAKESPEC"].toLower() == "features"
         || !mkspecs.contains(dictionary["QMAKESPEC"], Qt::CaseInsensitive)) {
-        dictionary[ "HELP" ] = "yes";
+        dictionary[ "DONE" ] = "error";
         if (dictionary ["QMAKESPEC_FROM"] == "commandline") {
             cout << "Invalid option \"" << dictionary["QMAKESPEC"] << "\" for -platform." << endl;
         } else if (dictionary ["QMAKESPEC_FROM"] == "env") {
@@ -1362,10 +1362,10 @@ void Configure::parseCmdLine()
         const QStringList family = devices.filter(dictionary["XQMAKESPEC"], Qt::CaseInsensitive);
 
         if (family.isEmpty()) {
-            dictionary["HELP"] = "yes";
+            dictionary[ "DONE" ] = "error";
             cout << "Error: No device matching '" << dictionary["XQMAKESPEC"] << "'." << endl;
         } else if (family.size() > 1) {
-            dictionary["HELP"] = "yes";
+            dictionary[ "DONE" ] = "error";
 
             cout << "Error: Multiple matches for device '" << dictionary["XQMAKESPEC"] << "'. Candidates are:" << endl;
 
@@ -1380,7 +1380,7 @@ void Configure::parseCmdLine()
         // Ensure that -spec (XQMAKESPEC) exists in the mkspecs folder as well
         if (dictionary.contains("XQMAKESPEC") &&
                 !mkspecs.contains(dictionary["XQMAKESPEC"], Qt::CaseInsensitive)) {
-            dictionary["HELP"] = "yes";
+            dictionary[ "DONE" ] = "error";
             cout << "Invalid option \"" << dictionary["XQMAKESPEC"] << "\" for -xplatform." << endl;
         }
     }
@@ -1432,7 +1432,8 @@ void Configure::parseCmdLine()
     for (QStringList::Iterator it = disabledModules.begin(); it != disabledModules.end(); ++it)
         qtConfig.removeAll(*it);
 
-    if ((dictionary[ "REDO" ] != "yes") && (dictionary[ "HELP" ] != "yes"))
+    if ((dictionary[ "REDO" ] != "yes") && (dictionary[ "HELP" ] != "yes")
+            && (dictionary[ "DONE" ] != "error"))
         saveCmdLine();
 }
 
@@ -1461,7 +1462,7 @@ void Configure::validateArgs()
     if (!QFileInfo::exists(cfgpath)) {
         cfgpath = QFileInfo(dictionary["QCONFIG"]).absoluteFilePath();
         if (!QFileInfo::exists(cfgpath)) {
-            dictionary[ "HELP" ] = "yes";
+            dictionary[ "DONE" ] = "error";
             cout << "No such configuration \"" << qPrintable(dictionary["QCONFIG"]) << "\"" << endl ;
             return;
         }
@@ -1641,6 +1642,7 @@ void Configure::applySpecSpecifics()
         dictionary[ "QT_CUPS" ]             = "no";
         dictionary[ "QT_GLIB" ]             = "no";
         dictionary[ "QT_ICONV" ]            = "no";
+        dictionary[ "FONT_CONFIG" ]         = "auto";
 
         dictionary["DECORATIONS"]           = "default windows styled";
     } else if ((platform() == QNX) || (platform() == BLACKBERRY)) {
@@ -1648,6 +1650,7 @@ void Configure::applySpecSpecifics()
         dictionary["SLOG2"]                 = "auto";
         dictionary["QT_XKBCOMMON"]          = "no";
         dictionary[ "ANGLE" ]               = "no";
+        dictionary[ "FONT_CONFIG" ]         = "auto";
     } else if (platform() == ANDROID) {
         dictionary[ "REDUCE_EXPORTS" ]      = "yes";
         dictionary[ "BUILD" ]               = "release";
@@ -2096,7 +2099,7 @@ bool Configure::checkAvailability(const QString &part)
         available = findFile("pcre.h");
 
     else if (part == "ICU")
-        available = findFile("unicode/utypes.h") && findFile("unicode/ucol.h") && findFile("unicode/ustring.h");
+        available = tryCompileProject("unix/icu");
 
     else if (part == "ANGLE") {
         available = checkAngleAvailability();
@@ -2200,6 +2203,10 @@ bool Configure::checkAvailability(const QString &part)
         available = (platform() == QNX || platform() == BLACKBERRY) && compilerSupportsFlag("qcc -fstack-protector-strong");
     } else if (part == "SLOG2") {
         available = tryCompileProject("unix/slog2");
+    } else if (part == "NEON") {
+        available = (dictionary["QT_ARCH"] == "arm") && tryCompileProject("unix/neon");
+    } else if (part == "FONT_CONFIG") {
+        available = tryCompileProject("unix/fontconfig");
     }
 
     return available;
@@ -2211,6 +2218,9 @@ bool Configure::checkAvailability(const QString &part)
 void Configure::autoDetection()
 {
     cout << "Running configuration tests..." << endl;
+
+    // Auto-detect CPU architectures.
+    detectArch();
 
     if (dictionary["C++11"] == "auto") {
         if (!dictionary["QMAKESPEC"].contains("msvc"))
@@ -2295,6 +2305,8 @@ void Configure::autoDetection()
         dictionary["AVX2"] = checkAvailability("AVX2") ? "yes" : "no";
     if (dictionary["IWMMXT"] == "auto")
         dictionary["IWMMXT"] = checkAvailability("IWMMXT") ? "yes" : "no";
+    if (dictionary["NEON"] == "auto")
+        dictionary["NEON"] = checkAvailability("NEON") ? "yes" : "no";
     if (dictionary["OPENSSL"] == "auto")
         dictionary["OPENSSL"] = checkAvailability("OPENSSL") ? "yes" : "no";
     if (dictionary["DBUS"] == "auto")
@@ -2338,6 +2350,9 @@ void Configure::autoDetection()
 
     if (dictionary["QT_EVENTFD"] == "auto")
         dictionary["QT_EVENTFD"] = checkAvailability("QT_EVENTFD") ? "yes" : "no";
+
+    if (dictionary["FONT_CONFIG"] == "auto")
+        dictionary["FONT_CONFIG"] = checkAvailability("FONT_CONFIG") ? "yes" : "no";
 
     // Mark all unknown "auto" to the default value..
     for (QMap<QString,QString>::iterator i = dictionary.begin(); i != dictionary.end(); ++i) {
@@ -2811,7 +2826,6 @@ void Configure::generateOutputVars()
         cout << "Configure could not detect your compiler. QMAKESPEC must either" << endl
              << "be defined as an environment variable, or specified as an" << endl
              << "argument with -platform" << endl;
-        dictionary[ "HELP" ] = "yes";
 
         QStringList winPlatforms;
         QDir mkspecsDir(sourcePath + "/mkspecs");
@@ -3522,6 +3536,7 @@ void Configure::displayConfig()
     sout << "    JPEG support............" << dictionary[ "JPEG" ] << endl;
     sout << "    PNG support............." << dictionary[ "PNG" ] << endl;
     sout << "    FreeType support........" << dictionary[ "FREETYPE" ] << endl;
+    sout << "    Fontconfig support......" << dictionary[ "FONT_CONFIG" ] << endl;
     sout << "    HarfBuzz-NG support....." << dictionary[ "HARFBUZZ" ] << endl;
     sout << "    PCRE support............" << dictionary[ "PCRE" ] << endl;
     sout << "    ICU support............." << dictionary[ "ICU" ] << endl;

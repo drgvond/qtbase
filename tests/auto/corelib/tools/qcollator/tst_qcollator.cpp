@@ -3,7 +3,7 @@
 ** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
-** This file is part of the QtGui module of the Qt Toolkit.
+** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
@@ -39,7 +39,54 @@
 **
 ****************************************************************************/
 
-#ifndef QACCESSIBLE2_H
-#define QACCESSIBLE2_H
+#include <QtTest/QtTest>
 
+#include <qlocale.h>
+#include <qcollator.h>
+
+#include <cstring>
+
+class tst_QCollator : public QObject
+{
+    Q_OBJECT
+
+private Q_SLOTS:
+    void moveSemantics();
+};
+
+#ifdef Q_COMPILER_RVALUE_REFS
+static bool dpointer_is_null(QCollator &c)
+{
+    char mem[sizeof c];
+    using namespace std;
+    memcpy(mem, &c, sizeof c);
+    for (size_t i = 0; i < sizeof c; ++i)
+        if (mem[i])
+            return false;
+    return true;
+}
 #endif
+
+void tst_QCollator::moveSemantics()
+{
+#ifdef Q_COMPILER_RVALUE_REFS
+    const QLocale de_AT(QLocale::German, QLocale::Austria);
+
+    QCollator c1(de_AT);
+    QCOMPARE(c1.locale(), de_AT);
+
+    QCollator c2(std::move(c1));
+    QCOMPARE(c2.locale(), de_AT);
+    QVERIFY(dpointer_is_null(c1));
+
+    c1 = std::move(c2);
+    QCOMPARE(c1.locale(), de_AT);
+    QVERIFY(dpointer_is_null(c2));
+#else
+    QSKIP("The compiler is not in C++11 mode or does not support move semantics.");
+#endif
+}
+
+QTEST_APPLESS_MAIN(tst_QCollator)
+
+#include "tst_qcollator.moc"
