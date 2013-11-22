@@ -323,6 +323,21 @@ void QCocoaWindow::setCocoaGeometry(const QRect &rect)
         QPlatformWindow::setGeometry(rect);
         QRect globalRect = QRect(window()->mapToGlobal(QPoint()), rect.size());
         qDebug() << "global rect" << globalRect;
+        QRect globalRect = QRect(window()->mapToGlobal(QPoint(0,0)), rect.size());
+
+        // NSWindows are not clipped by the parent NSWindow. Clip
+        // the NSWindow geometry to the parent window geometry. This
+        // clipped geometry applies to the NSWndow only and Qt sees
+        // the full window geometry.
+        if (QWindow *parentWindow = window()->parent()) {
+            QRect parentGlobalRect = QRect(parentWindow->mapToGlobal(QPoint(0,0)), parentWindow->geometry().size());
+
+            // Clipping top/left offsets the content. Move it back.
+            [m_contentView setBoundsOrigin:NSMakePoint(qMax(0, parentGlobalRect.x() - globalRect.x()),
+                                                       qMax(0, parentGlobalRect.y() - globalRect.y()))];
+            globalRect = globalRect.intersected(parentGlobalRect);
+        }
+
         NSRect bounds = qt_mac_flipRect(globalRect, window());
         qDebug() << "bounds" << bounds.origin.x << bounds.origin.y << bounds.size.width << bounds.size.height;
         [m_nsWindow setFrame:bounds display:YES animate:NO];
@@ -337,6 +352,35 @@ void QCocoaWindow::setCocoaGeometry(const QRect &rect)
     }
 
     // will call QPlatformWindow::setGeometry(rect) during resize confirmation (see qnsview.mm)
+}
+
+void QCocoaWindow::clipChildWindows()
+{
+    QRect globalWindowRect = QRect(window()->mapToGlobal(QPoint(0,0)), geometry().size());
+    foreach (QCocoaWindow *childWindow, childWindows()) {
+        childWindow->clipWindow(globalWindowRect);
+    }
+}
+
+void QCocoaWindow::clipWindow(const QRect &clipRect)
+{
+    if (!m_isNSWindowChild)
+        return;
+
+    QRect widnowRect = QRect(window()->mapToGlobal(QPoint(0,0)), geometry().size());
+
+    // Clipping top/left offsets the content. Move it back.
+    [m_contentView setBoundsOrigin:NSMakePoint(qMax(0, clipRect.x() - widnowRect.x()),
+                                               qMax(0, clipRect.y() - widnowRect.y()))];
+
+    QRect clippedWindowRect = widnowRect.intersected(clipRect);
+    NSRect bounds = qt_mac_flipRect(clippedWindowRect, window());
+    [m_nsWindow setFrame:bounds display:YES animate:NO];
+
+    // recurse
+    foreach (QCocoaWindow *childWindow, childWindows()) {
+        childWindow->clipWindow(clippedWindowRect);
+    }
 }
 
 void QCocoaWindow::setVisible(bool visible)
@@ -1126,6 +1170,18 @@ void QCocoaWindow::syncWindowState(Qt::WindowState newState)
 
     // New state is now the current synched state
     m_synchedWindowState = newState;
+}
+
+QList<QCocoaWindow*> QCocoaWindow::childWindows()
+{
+    QList<QCocoaWindow*> childWindows;
+    QObjectList childObjects = window()->children();
+    for (int i = 0; i < childObjects.size(); i++) {
+        QObject *object = childObjects.at(i);
+        if (object->isWindowType())
+            childWindows.append(static_cast<QCocoaWindow*>(static_cast<QWindow*>(object)->handle()));
+    }
+    return childWindows;
 }
 
 bool QCocoaWindow::setWindowModified(bool modified)

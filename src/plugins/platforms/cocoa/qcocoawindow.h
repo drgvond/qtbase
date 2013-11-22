@@ -100,6 +100,8 @@ public:
 
     void setGeometry(const QRect &rect);
     void setCocoaGeometry(const QRect &rect);
+    void clipChildWindows();
+    void clipWindow(const QRect &clipRect);
     void setVisible(bool visible);
     void setWindowFlags(Qt::WindowFlags flags);
     void setWindowState(Qt::WindowState state);
@@ -145,6 +147,7 @@ public:
     void setCurrentContext(QCocoaGLContext *context);
     QCocoaGLContext *currentContext() const;
 
+    QList<QCocoaWindow*> childWindows();
     bool setWindowModified(bool modified) Q_DECL_OVERRIDE;
 
     void setFrameStrutEventsEnabled(bool enabled);

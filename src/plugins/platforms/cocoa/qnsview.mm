@@ -228,6 +228,9 @@ static QTouchDevice *touchDevice = 0;
 {
     QRect geometry;
 
+
+    m_platformWindow->clipChildWindows();
+
     if (m_platformWindow->m_isNSWindowChild) {
          return;
 #if 0
