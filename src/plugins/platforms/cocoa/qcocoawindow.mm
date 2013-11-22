@@ -320,10 +320,7 @@ void QCocoaWindow::setCocoaGeometry(const QRect &rect)
     }
 
     if (m_isNSWindowChild) {
-        qDebug() << "setGeometry" << window() << "parent" << QString::fromNSString([m_nsWindow.parentWindow description]) << "rect" <<  rect;
         QPlatformWindow::setGeometry(rect);
-        QRect globalRect = QRect(window()->mapToGlobal(QPoint()), rect.size());
-        qDebug() << "global rect" << globalRect;
         QRect globalRect = QRect(window()->mapToGlobal(QPoint(0,0)), rect.size());
 
         // NSWindows are not clipped by the parent NSWindow. Clip
@@ -340,7 +337,6 @@ void QCocoaWindow::setCocoaGeometry(const QRect &rect)
         }
 
         NSRect bounds = qt_mac_flipRect(globalRect, window());
-        qDebug() << "bounds" << bounds.origin.x << bounds.origin.y << bounds.size.width << bounds.size.height;
         [m_nsWindow setFrame:bounds display:YES animate:NO];
 
         // call this here: updateGeometry in qnsview.mm is a no-op for this case
