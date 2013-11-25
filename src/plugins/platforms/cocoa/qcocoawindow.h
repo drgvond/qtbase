@@ -70,16 +70,21 @@ QT_FORWARD_DECLARE_CLASS(QCocoaWindow)
 @class QNSWindowDelegate;
 
 QT_BEGIN_NAMESPACE
+
 // QCocoaWindow
 //
-// QCocoaWindow is an NSView (not an NSWindow!) in the sense
-// that it relies on a NSView for all event handling and
-// graphics output and does not require a NSWindow, except for
-// for the window-related functions like setWindowTitle.
+// A QCocoaWindow is backed by a NSView and optionally a NSWindow.
 //
-// As a consequence of this it is possible to embed the QCocoaWindow
-// in an NSView hierarchy by getting a pointer to the "backing"
-// NSView and not calling QCocoaWindow::show():
+// The NSView is used for most event handling and graphics output.
+//
+// Top-level QWindows are always backed by a NSWindow in addition to
+// the NSView. Child QWindows can also be backed by NSWindows, which
+// enables proper stacking of GL Widgets and threaded GL rendering
+// to multiple contexts.
+//
+// It is possible to embed the QCocoaWindow in an NSView hierarchy
+// by getting a pointer to the backing NSView and not calling
+// QCocoaWindow::show():
 //
 // QWindow *qtWindow = new MyWindow();
 // qtWindow->create();
@@ -166,8 +171,6 @@ public:
     void obscureWindow();
     QWindow *childWindowAt(QPoint windowPoint);
 protected:
-    // NSWindow handling. The QCocoaWindow/QNSView can either be displayed
-    // in an existing NSWindow or in one created by Qt.
     bool enableNSWindowChild();
     void recreateWindow(const QPlatformWindow *parentWindow);
     NSWindow *createNSWindow();
