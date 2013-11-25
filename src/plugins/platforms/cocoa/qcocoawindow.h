@@ -168,6 +168,7 @@ public:
 protected:
     // NSWindow handling. The QCocoaWindow/QNSView can either be displayed
     // in an existing NSWindow or in one created by Qt.
+    bool enableNSWindowChild();
     void recreateWindow(const QPlatformWindow *parentWindow);
     NSWindow *createNSWindow();
     void setNSWindow(NSWindow *window);
