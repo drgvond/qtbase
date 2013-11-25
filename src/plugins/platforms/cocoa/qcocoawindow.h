@@ -152,7 +152,6 @@ public:
     void setCurrentContext(QCocoaGLContext *context);
     QCocoaGLContext *currentContext() const;
 
-    QList<QCocoaWindow*> childWindows();
     bool setWindowModified(bool modified) Q_DECL_OVERRIDE;
 
     void setFrameStrutEventsEnabled(bool enabled);
@@ -180,6 +179,7 @@ protected:
     QRect windowGeometry() const;
     QCocoaWindow *parentCocoaWindow() const;
     void syncWindowState(Qt::WindowState newState);
+    void reinsertChildWindow(QCocoaWindow *child);
 
 // private:
 public: // for QNSView
@@ -195,6 +195,7 @@ public: // for QNSView
     bool m_contentViewIsToBeEmbedded; // true if the m_contentView is intended to be embedded in a "foreign" NSView hiearchy
 
     bool m_isNSWindowChild; // this window is a non-top level QWindow with a NSWindow.
+    QList<QCocoaWindow *> m_childWindows;
 
     QNSWindowDelegate *m_nsWindowDelegate;
     Qt::WindowFlags m_windowFlags;

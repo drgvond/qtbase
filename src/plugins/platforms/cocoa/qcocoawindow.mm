@@ -291,8 +291,11 @@ QCocoaWindow::~QCocoaWindow()
 
     QCocoaAutoReleasePool pool;
     clearNSWindow(m_nsWindow);
-    if (parent())
+    if (parent()) {
         [m_contentView removeFromSuperview];
+        if (QCocoaWindow *parentWindow = static_cast<QCocoaWindow *>(parent()))
+            parentWindow->m_childWindows.removeOne(this);
+    }
     [m_contentView release];
     [m_nsWindow release];
     [m_nsWindowDelegate release];
@@ -358,7 +361,7 @@ void QCocoaWindow::setCocoaGeometry(const QRect &rect)
 void QCocoaWindow::clipChildWindows()
 {
     QRect globalWindowRect = QRect(window()->mapToGlobal(QPoint(0,0)), geometry().size());
-    foreach (QCocoaWindow *childWindow, childWindows()) {
+    foreach (QCocoaWindow *childWindow, m_childWindows) {
         childWindow->clipWindow(globalWindowRect);
     }
 }
@@ -379,7 +382,7 @@ void QCocoaWindow::clipWindow(const QRect &clipRect)
     [m_nsWindow setFrame:bounds display:YES animate:NO];
 
     // recurse
-    foreach (QCocoaWindow *childWindow, childWindows()) {
+    foreach (QCocoaWindow *childWindow, m_childWindows) {
         childWindow->clipWindow(clippedWindowRect);
     }
 }
@@ -455,13 +458,13 @@ void QCocoaWindow::setVisible(bool visible)
                 } else if ([m_nsWindow canBecomeKeyWindow]) {
                     [m_nsWindow makeKeyAndOrderFront:nil];
                 } else {
-                    if (m_isNSWindowChild && window()->parent()) {
-                        QCocoaWindow *parentWindow = static_cast<QCocoaWindow *>(window()->parent()->handle());
+                    if (m_isNSWindowChild && parent()) {
                         setCocoaGeometry(window()->geometry());
-                        [parentWindow->m_nsWindow addChildWindow:m_nsWindow ordered:NSWindowAbove];
-                        qDebug() << "added back" << m_nsWindow.parentWindow;
+                        QCocoaWindow *parentWindow = static_cast<QCocoaWindow *>(parent());
+                        parentWindow->reinsertChildWindow(this);
+                    } else {
+                        [m_nsWindow orderFront: nil];
                     }
-                    [m_nsWindow orderFront: nil];
                 }
 
                 // We want the events to properly reach the popup, dialog, and tool
@@ -690,6 +693,11 @@ void QCocoaWindow::raise()
     // ### handle spaces (see Qt 4 raise_sys in qwidget_mac.mm)
     if (!m_nsWindow)
         return;
+    if (m_isNSWindowChild) {
+        QList<QCocoaWindow *> &siblings = static_cast<QCocoaWindow *>(parent())->m_childWindows;
+        siblings.removeOne(this);
+        siblings.append(this);
+    }
     if ([m_nsWindow isVisible]) {
         if (m_isNSWindowChild) {
             // -[NSWindow orderFront:] doesn't work with attached windows.
@@ -708,6 +716,11 @@ void QCocoaWindow::lower()
 {
     if (!m_nsWindow)
         return;
+    if (m_isNSWindowChild) {
+        QList<QCocoaWindow *> &siblings = static_cast<QCocoaWindow *>(parent())->m_childWindows;
+        siblings.removeOne(this);
+        siblings.prepend(this);
+    }
     if ([m_nsWindow isVisible]) {
         if (m_isNSWindowChild) {
             // -[NSWindow orderBack:] doesn't work with attached windows.
@@ -966,7 +979,7 @@ void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
         qDebug() << "child window" << window();
         qDebug() << "child nswindow" << QString::fromNSString([m_nsWindow description]);
 
-        const QCocoaWindow *parentCococaWindow = static_cast<const QCocoaWindow *>(parentWindow);
+        QCocoaWindow *parentCococaWindow = const_cast<QCocoaWindow *>(static_cast<const QCocoaWindow *>(parentWindow));
 
         qDebug() << "parent window" << parentWindow->window();
         qDebug() << "parent nswindow" << QString::fromNSString([parentCococaWindow->m_nsWindow description]);
@@ -974,7 +987,13 @@ void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
 
 
         setCocoaGeometry(window()->geometry());
-        [parentCococaWindow->m_nsWindow addChildWindow:m_nsWindow ordered:NSWindowAbove];
+        QList<QCocoaWindow *> &siblings = parentCococaWindow->m_childWindows;
+        if (siblings.contains(this)) {
+            parentCococaWindow->reinsertChildWindow(this);
+        } else {
+            [parentCococaWindow->m_nsWindow addChildWindow:m_nsWindow ordered:NSWindowAbove];
+            siblings.append(this);
+        }
     } else {
         // Child windows have no NSWindow, link the NSViews instead.
         const QCocoaWindow *parentCococaWindow = static_cast<const QCocoaWindow *>(parentWindow);
@@ -988,6 +1007,23 @@ void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
     const qreal opacity = qt_window_private(window())->opacity;
     if (!qFuzzyCompare(opacity, qreal(1.0)))
         setOpacity(opacity);
+}
+
+void QCocoaWindow::reinsertChildWindow(QCocoaWindow *child)
+{
+    int childIndex = m_childWindows.indexOf(child);
+    Q_ASSERT(childIndex != -1);
+
+    NSUInteger nsChildIndex = [m_nsWindow.childWindows indexOfObjectIdenticalTo:child->m_nsWindow];
+    if (nsChildIndex != NSNotFound && nsChildIndex == (NSUInteger)childIndex)
+        return; // No need to add all the other windows if child is in the right place in the stack.
+
+    for (int i = childIndex; i < m_childWindows.size(); i++) {
+        NSWindow *nsChild = m_childWindows[i]->m_nsWindow;
+        if (i != childIndex)
+            [m_nsWindow removeChildWindow:nsChild];
+        [m_nsWindow addChildWindow:nsChild ordered:NSWindowAbove];
+    }
 }
 
 void QCocoaWindow::requestActivateWindow()
@@ -1180,18 +1216,6 @@ void QCocoaWindow::syncWindowState(Qt::WindowState newState)
 
     // New state is now the current synched state
     m_synchedWindowState = newState;
-}
-
-QList<QCocoaWindow*> QCocoaWindow::childWindows()
-{
-    QList<QCocoaWindow*> childWindows;
-    QObjectList childObjects = window()->children();
-    for (int i = 0; i < childObjects.size(); i++) {
-        QObject *object = childObjects.at(i);
-        if (object->isWindowType())
-            childWindows.append(static_cast<QCocoaWindow*>(static_cast<QWindow*>(object)->handle()));
-    }
-    return childWindows;
 }
 
 bool QCocoaWindow::setWindowModified(bool modified)
