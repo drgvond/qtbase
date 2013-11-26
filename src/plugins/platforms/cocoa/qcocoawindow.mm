@@ -342,7 +342,7 @@ void QCocoaWindow::setCocoaGeometry(const QRect &rect)
             globalRect = globalRect.intersected(parentGlobalRect);
         }
 
-        NSRect bounds = qt_mac_flipRect(globalRect, window());
+        NSRect bounds = qt_mac_flipRect(globalRect);
         [m_nsWindow setFrame:bounds display:YES animate:NO];
 
         // call this here: updateGeometry in qnsview.mm is a no-op for this case

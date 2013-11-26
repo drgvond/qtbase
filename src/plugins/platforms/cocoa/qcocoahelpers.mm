@@ -620,6 +620,12 @@ NSRect qt_mac_flipRect(const QRect &rect, QWindow *window)
     return NSMakeRect(rect.x(), flippedY, rect.width(), rect.height());
 }
 
+NSRect qt_mac_flipRect(const QRect &rect)
+{
+    int flippedY = qt_mac_flipYCoordinate(rect.y() + rect.height());
+    return NSMakeRect(rect.x(), flippedY, rect.width(), rect.height());
+}
+
 OSStatus qt_mac_drawCGImage(CGContextRef inContext, const CGRect *inBounds, CGImageRef inImage)
 {
     // Verbatim copy if HIViewDrawCGImage (as shown on Carbon-Dev)
