@@ -171,7 +171,7 @@ static inline void centerOnScreen(QWidget *w)
     w->move(QGuiApplication::primaryScreen()->availableGeometry().center() - offset);
 }
 
-#if defined(Q_OS_WIN) && !defined(Q_OS_WINCE)
+#if defined(Q_OS_WIN) && !defined(Q_OS_WINCE) && !defined(Q_OS_WINRT)
 static inline void setWindowsAnimationsEnabled(bool enabled)
 {
     ANIMATIONINFO animation = { sizeof(ANIMATIONINFO), enabled };
@@ -184,10 +184,10 @@ static inline bool windowsAnimationsEnabled()
     SystemParametersInfo(SPI_GETANIMATION, 0, &animation, 0);
     return animation.iMinAnimate;
 }
-#else // Q_OS_WIN && !Q_OS_WINCE
+#else // Q_OS_WIN && !Q_OS_WINCE && !Q_OS_WINRT
 inline void setWindowsAnimationsEnabled(bool) {}
 static inline bool windowsAnimationsEnabled() { return false; }
-#endif // !Q_OS_WIN || Q_OS_WINCE
+#endif // !Q_OS_WIN || Q_OS_WINCE || Q_OS_WINRT
 
 class tst_QWidget : public QObject
 {
@@ -7192,10 +7192,6 @@ void tst_QWidget::hideOpaqueChildWhileHidden()
 #if !defined(Q_OS_WINCE)
 void tst_QWidget::updateWhileMinimized()
 {
-#ifdef Q_OS_UNIX
-    if (qgetenv("XDG_CURRENT_DESKTOP").contains("Unity"))
-        QSKIP("This test fails on Unity."); // Minimized windows are not unmapped for some reason.
-#endif // Q_OS_UNIX
     UpdateWidget widget;
    // Filter out activation change and focus events to avoid update() calls in QWidget.
     widget.updateOnActivationChangeAndFocusIn = false;

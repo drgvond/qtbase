@@ -50,8 +50,10 @@
 
 QT_BEGIN_NAMESPACE
 
-class QIOSScreen : public QPlatformScreen
+class QIOSScreen : public QObject, public QPlatformScreen
 {
+    Q_OBJECT
+
 public:
     QIOSScreen(unsigned int screenIndex);
     ~QIOSScreen();
@@ -73,6 +75,10 @@ public:
     UIScreen *uiScreen() const;
 
     void updateProperties();
+    void layoutWindows();
+
+public slots:
+    void updateStatusBarVisibility();
 
 private:
     UIScreen *m_uiScreen;

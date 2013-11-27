@@ -1,9 +1,9 @@
 /****************************************************************************
 **
-** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 BlackBerry Limited. All rights reserved.
 ** Contact: http://www.qt-project.org/legal
 **
-** This file is part of the plugins of the Qt Toolkit.
+** This file is part of the config.tests of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
@@ -39,52 +39,12 @@
 **
 ****************************************************************************/
 
-#ifndef QCOCOAFILEDIALOGHELPER_H
-#define QCOCOAFILEDIALOGHELPER_H
+#include <sys/pps.h>
 
-#include <QObject>
-#include <qpa/qplatformdialoghelper.h>
-
-QT_BEGIN_NAMESPACE
-
-class QFileDialog;
-class QFileDialogPrivate;
-
-class QCocoaFileDialogHelper : public QPlatformFileDialogHelper
+int main(int, char **)
 {
-public:
-    QCocoaFileDialogHelper();
-    virtual ~QCocoaFileDialogHelper();
+    pps_decoder_t decoder;
 
-    void exec();
-
-    bool defaultNameFilterDisables() const;
-
-    bool show(Qt::WindowFlags windowFlags, Qt::WindowModality windowModality, QWindow *parent);
-    void hide();
-    void setDirectory(const QUrl &directory) Q_DECL_OVERRIDE;
-    QUrl directory() const Q_DECL_OVERRIDE;
-    void selectFile(const QUrl &filename) Q_DECL_OVERRIDE;
-    QList<QUrl> selectedFiles() const Q_DECL_OVERRIDE;
-    void setFilter();
-    void selectNameFilter(const QString &filter);
-    QString selectedNameFilter() const;
-
-public:
-    bool showCocoaFilePanel(Qt::WindowModality windowModality, QWindow *parent);
-    bool hideCocoaFilePanel();
-
-    void createNSOpenSavePanelDelegate();
-    void QNSOpenSavePanelDelegate_selectionChanged(const QString &newPath);
-    void QNSOpenSavePanelDelegate_panelClosed(bool accepted);
-    void QNSOpenSavePanelDelegate_directoryEntered(const QString &newDir);
-    void QNSOpenSavePanelDelegate_filterSelected(int menuIndex);
-
-private:
-    void *mDelegate;
-    QUrl mDir;
-};
-
-QT_END_NAMESPACE
-
-#endif // QCOCOAFILEDIALOGHELPER_H
+    pps_decoder_initialize(&decoder, NULL);
+    return 0;
+}
