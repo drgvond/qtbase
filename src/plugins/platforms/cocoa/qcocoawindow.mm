@@ -300,8 +300,8 @@ QCocoaWindow::~QCocoaWindow()
     clearNSWindow(m_nsWindow);
     if (parent()) {
         [m_contentView removeFromSuperview];
-        if (QCocoaWindow *parentWindow = static_cast<QCocoaWindow *>(parent()))
-            parentWindow->m_childWindows.removeOne(this);
+        if (m_isNSWindowChild)
+            static_cast<QCocoaWindow *>(parent())->m_childWindows.removeOne(this);
     }
     [m_contentView release];
     [m_nsWindow release];
@@ -465,12 +465,11 @@ void QCocoaWindow::setVisible(bool visible)
                 } else if ([m_nsWindow canBecomeKeyWindow]) {
                     [m_nsWindow makeKeyAndOrderFront:nil];
                 } else {
+                    [m_nsWindow orderFront: nil];
                     if (m_isNSWindowChild && parent()) {
                         setCocoaGeometry(window()->geometry());
                         QCocoaWindow *parentWindow = static_cast<QCocoaWindow *>(parent());
                         parentWindow->reinsertChildWindow(this);
-                    } else {
-                        [m_nsWindow orderFront: nil];
                     }
                 }
 
@@ -1022,10 +1021,6 @@ void QCocoaWindow::reinsertChildWindow(QCocoaWindow *child)
 {
     int childIndex = m_childWindows.indexOf(child);
     Q_ASSERT(childIndex != -1);
-
-    NSUInteger nsChildIndex = [m_nsWindow.childWindows indexOfObjectIdenticalTo:child->m_nsWindow];
-    if (nsChildIndex != NSNotFound && nsChildIndex == (NSUInteger)childIndex)
-        return; // No need to add all the other windows if child is in the right place in the stack.
 
     for (int i = childIndex; i < m_childWindows.size(); i++) {
         NSWindow *nsChild = m_childWindows[i]->m_nsWindow;
