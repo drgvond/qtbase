@@ -102,12 +102,19 @@ static bool isMouseEvent(NSEvent *ev)
 }
 @end
 
-void printWindowHierarchy(NSWindow *win, int indent = 0)
+void printWindowHierarchy(NSWindow *win, NSWindow *current = nil, int indent = 1)
 {
-    NSString *spaces = [@"" stringByPaddingToLength:indent withString:@" " startingAtIndex:0];
-    NSLog(@"%@%@ %@", spaces, win, NSStringFromRect(win.frame));
+    if (!win)
+        return;
+    if (!current) {
+        current = win;
+        while (win.parentWindow)
+            win = win.parentWindow;
+    }
+    NSString *spaces = [(win == current ? @"*" : @"") stringByPaddingToLength:indent withString:@" " startingAtIndex:0];
+    NSLog(@"%@%@", spaces, win);
     for (NSWindow *child in win.childWindows)
-        printWindowHierarchy(child, indent + 4);
+        printWindowHierarchy(child, current, indent + 4);
 }
 
 @implementation QNSWindow
@@ -117,7 +124,7 @@ void printWindowHierarchy(NSWindow *win, int indent = 0)
     NSString *sd = [super description];
     NSString *qWindowName = QCFString::toNSString(m_cocoaPlatformWindow && m_cocoaPlatformWindow->window() ?
                                                       m_cocoaPlatformWindow->window()->objectName() : "<null>");
-    return [NSString stringWithFormat:@"%@ '%@'", sd, qWindowName];
+    return [NSString stringWithFormat:@"%@ '%@' visible %d frame %@", sd, qWindowName, [self isVisible], NSStringFromRect(self.frame)];
 }
 
 - (BOOL)canBecomeKeyWindow
