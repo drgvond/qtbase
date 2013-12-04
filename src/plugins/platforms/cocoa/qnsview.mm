@@ -242,6 +242,7 @@ static QTouchDevice *touchDevice = 0;
 #endif
         //geometry = QRect(screenRect.origin.x, qt_mac_flipYCoordinate(screenRect.origin.y + screenRect.size.height), screenRect.size.width, screenRect.size.height);
     } else if (m_platformWindow->m_nsWindow) {
+        m_platformWindow->clipChildWindows();
 
         // top level window, get window rect and flip y.
         NSRect rect = [self frame];

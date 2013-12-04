@@ -335,7 +335,8 @@ void QCocoaWindow::setCocoaGeometry(const QRect &rect)
 
     if (m_isNSWindowChild) {
         QPlatformWindow::setGeometry(rect);
-        clipWindow(m_nsWindow.parentWindow.frame);
+        NSRect parentWindowFrame = [m_nsWindow.parentWindow contentRectForFrameRect:m_nsWindow.parentWindow.frame];
+        clipWindow(parentWindowFrame);
 
         // call this here: updateGeometry in qnsview.mm is a no-op for this case
         QWindowSystemInterface::handleGeometryChange(window(), rect);
@@ -365,11 +366,11 @@ void QCocoaWindow::clipWindow(const NSRect &clipRect)
     NSRect clippedWindowRect = NSZeroRect;
     if (!NSIsEmptyRect(clipRect)) {
         NSRect windowFrame = qt_mac_flipRect(QRect(window()->mapToGlobal(QPoint(0, 0)), geometry().size()), window());
-        // Clipping top/left offsets the content. Move it back.
-        [m_contentView setBoundsOrigin:NSMakePoint(qMax(0.0, clipRect.origin.x - windowFrame.origin.x),
-                                                   qMax(0.0, clipRect.origin.y - windowFrame.origin.y))];
-
         clippedWindowRect = NSIntersectionRect(windowFrame, clipRect);
+        // Clipping top/left offsets the content. Move it back.
+        NSPoint contentViewOffset = NSMakePoint(qMax(CGFloat(0), NSMinX(clippedWindowRect) - NSMinX(windowFrame)),
+                                                qMax(CGFloat(0), NSMaxY(windowFrame) - NSMaxY(clippedWindowRect)));
+        [m_contentView setBoundsOrigin:contentViewOffset];
     }
 
     if (NSIsEmptyRect(clippedWindowRect)) {
