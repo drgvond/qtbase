@@ -335,23 +335,7 @@ void QCocoaWindow::setCocoaGeometry(const QRect &rect)
 
     if (m_isNSWindowChild) {
         QPlatformWindow::setGeometry(rect);
-        QRect globalRect = QRect(window()->mapToGlobal(QPoint(0,0)), rect.size());
-
-        // NSWindows are not clipped by the parent NSWindow. Clip
-        // the NSWindow geometry to the parent window geometry. This
-        // clipped geometry applies to the NSWndow only and Qt sees
-        // the full window geometry.
-        if (QWindow *parentWindow = window()->parent()) {
-            QRect parentGlobalRect = QRect(parentWindow->mapToGlobal(QPoint(0,0)), parentWindow->geometry().size());
-
-            // Clipping top/left offsets the content. Move it back.
-            [m_contentView setBoundsOrigin:NSMakePoint(qMax(0, parentGlobalRect.x() - globalRect.x()),
-                                                       qMax(0, parentGlobalRect.y() - globalRect.y()))];
-            globalRect = globalRect.intersected(parentGlobalRect);
-        }
-
-        NSRect bounds = qt_mac_flipRect(globalRect);
-        [m_nsWindow setFrame:bounds display:YES animate:NO];
+        clipWindow(m_nsWindow.parentWindow.frame);
 
         // call this here: updateGeometry in qnsview.mm is a no-op for this case
         QWindowSystemInterface::handleGeometryChange(window(), rect);
@@ -380,7 +364,7 @@ void QCocoaWindow::clipWindow(const NSRect &clipRect)
 
     NSRect clippedWindowRect = NSZeroRect;
     if (!NSIsEmptyRect(clipRect)) {
-        NSRect windowFrame = qt_mac_flipRect(QRect(window()->mapToGlobal(QPoint(0, 0)), window()->size()), window());
+        NSRect windowFrame = qt_mac_flipRect(QRect(window()->mapToGlobal(QPoint(0, 0)), geometry().size()), window());
         // Clipping top/left offsets the content. Move it back.
         [m_contentView setBoundsOrigin:NSMakePoint(qMax(0.0, clipRect.origin.x - windowFrame.origin.x),
                                                    qMax(0.0, clipRect.origin.y - windowFrame.origin.y))];
