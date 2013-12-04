@@ -131,7 +131,7 @@ void printWindowHierarchy(NSWindow *win, NSWindow *current = nil, int indent = 1
 {
     // Prevent child NSWindows from becomming the key window in
     // order keep the active apperance of the top-level window.
-    if (m_cocoaPlatformWindow->m_isNSWindowChild)
+    if (!m_cocoaPlatformWindow || m_cocoaPlatformWindow->m_isNSWindowChild)
         return NO;
 
     // All other windows can become the key window. This includes
