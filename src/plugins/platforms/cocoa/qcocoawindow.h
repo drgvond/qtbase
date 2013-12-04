@@ -216,6 +216,7 @@ public: // for QNSView
     int m_registerTouchCount;
     bool m_resizableTransientParent;
     bool m_overrideBecomeKey;
+    bool m_hiddenByClipping;
 
     static const int NoAlertRequest;
     NSInteger m_alertRequest;

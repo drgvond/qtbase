@@ -254,6 +254,7 @@ QCocoaWindow::QCocoaWindow(QWindow *tlw)
     , m_registerTouchCount(0)
     , m_resizableTransientParent(false)
     , m_overrideBecomeKey(false)
+    , m_hiddenByClipping(false)
     , m_alertRequest(NoAlertRequest)
     , monitor(nil)
 {
@@ -377,13 +378,30 @@ void QCocoaWindow::clipWindow(const NSRect &clipRect)
     if (!m_isNSWindowChild)
         return;
 
-    NSRect frame = qt_mac_flipRect(QRect(window()->mapToGlobal(QPoint(0, 0)), window()->size()), window());
-    // Clipping top/left offsets the content. Move it back.
-    [m_contentView setBoundsOrigin:NSMakePoint(qMax(0.0, clipRect.origin.x - frame.origin.x),
-                                               qMax(0.0, clipRect.origin.y - frame.origin.y))];
+    NSRect clippedWindowRect = NSZeroRect;
+    if (!NSIsEmptyRect(clipRect)) {
+        NSRect windowFrame = qt_mac_flipRect(QRect(window()->mapToGlobal(QPoint(0, 0)), window()->size()), window());
+        // Clipping top/left offsets the content. Move it back.
+        [m_contentView setBoundsOrigin:NSMakePoint(qMax(0.0, clipRect.origin.x - windowFrame.origin.x),
+                                                   qMax(0.0, clipRect.origin.y - windowFrame.origin.y))];
 
-    NSRect clippedWindowRect = NSIntersectionRect(frame, clipRect);
-    [m_nsWindow setFrame:clippedWindowRect display:YES animate:NO];
+        clippedWindowRect = NSIntersectionRect(windowFrame, clipRect);
+    }
+
+    if (NSIsEmptyRect(clippedWindowRect)) {
+        if (!m_hiddenByClipping) {
+            m_hiddenByClipping = true;
+            [m_nsWindow orderOut:nil];
+        }
+    } else {
+        if (m_hiddenByClipping) {
+            m_hiddenByClipping = false;
+            [m_nsWindow orderFront:nil];
+            if (QCocoaWindow *parentWindow = static_cast<QCocoaWindow *>(parent()))
+                parentWindow->reinsertChildWindow(this);
+        }
+        [m_nsWindow setFrame:clippedWindowRect display:YES animate:NO];
+    }
 
     // recurse
     foreach (QCocoaWindow *childWindow, m_childWindows) {
