@@ -106,7 +106,7 @@ public:
     void setGeometry(const QRect &rect);
     void setCocoaGeometry(const QRect &rect);
     void clipChildWindows();
-    void clipWindow(const QRect &clipRect);
+    void clipWindow(const NSRect &clipRect);
     void setVisible(bool visible);
     void setWindowFlags(Qt::WindowFlags flags);
     void setWindowState(Qt::WindowState state);

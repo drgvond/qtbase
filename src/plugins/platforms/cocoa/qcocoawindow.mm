@@ -367,26 +367,23 @@ void QCocoaWindow::setCocoaGeometry(const QRect &rect)
 
 void QCocoaWindow::clipChildWindows()
 {
-    QRect globalWindowRect = QRect(window()->mapToGlobal(QPoint(0,0)), geometry().size());
     foreach (QCocoaWindow *childWindow, m_childWindows) {
-        childWindow->clipWindow(globalWindowRect);
+        childWindow->clipWindow(m_nsWindow.frame);
     }
 }
 
-void QCocoaWindow::clipWindow(const QRect &clipRect)
+void QCocoaWindow::clipWindow(const NSRect &clipRect)
 {
     if (!m_isNSWindowChild)
         return;
 
-    QRect widnowRect = QRect(window()->mapToGlobal(QPoint(0,0)), geometry().size());
-
+    NSRect frame = qt_mac_flipRect(QRect(window()->mapToGlobal(QPoint(0, 0)), window()->size()), window());
     // Clipping top/left offsets the content. Move it back.
-    [m_contentView setBoundsOrigin:NSMakePoint(qMax(0, clipRect.x() - widnowRect.x()),
-                                               qMax(0, clipRect.y() - widnowRect.y()))];
+    [m_contentView setBoundsOrigin:NSMakePoint(qMax(0.0, clipRect.origin.x - frame.origin.x),
+                                               qMax(0.0, clipRect.origin.y - frame.origin.y))];
 
-    QRect clippedWindowRect = widnowRect.intersected(clipRect);
-    NSRect bounds = qt_mac_flipRect(clippedWindowRect, window());
-    [m_nsWindow setFrame:bounds display:YES animate:NO];
+    NSRect clippedWindowRect = NSIntersectionRect(frame, clipRect);
+    [m_nsWindow setFrame:clippedWindowRect display:YES animate:NO];
 
     // recurse
     foreach (QCocoaWindow *childWindow, m_childWindows) {
