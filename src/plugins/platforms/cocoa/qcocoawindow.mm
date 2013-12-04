@@ -623,6 +623,20 @@ void QCocoaWindow::setWindowFlags(Qt::WindowFlags flags)
         if (!(styleMask & NSBorderlessWindowMask)) {
             setWindowTitle(window()->title());
         }
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_7
+        if (QSysInfo::QSysInfo::MacintoshVersion >= QSysInfo::MV_10_7) {
+            Qt::WindowType type = window()->type();
+            if ((type & Qt::Popup) != Qt::Popup && (type & Qt::Dialog) != Qt::Dialog) {
+                NSWindowCollectionBehavior behavior = [m_nsWindow collectionBehavior];
+                if (flags & Qt::WindowFullscreenButtonHint)
+                    behavior |= NSWindowCollectionBehaviorFullScreenPrimary;
+                else
+                    behavior &= ~NSWindowCollectionBehaviorFullScreenPrimary;
+                [m_nsWindow setCollectionBehavior:behavior];
+            }
+        }
+#endif
     }
 
     m_windowFlags = flags;
@@ -1066,8 +1080,6 @@ NSWindow * QCocoaWindow::createNSWindow()
             [window setHasShadow:NO];
         else if ((type & Qt::Popup) == Qt::Popup)
             [window setHasShadow:YES];
-        else
-            setWindowShadow(flags);
         [window setHidesOnDeactivate: NO];
 
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_7
@@ -1092,15 +1104,6 @@ NSWindow * QCocoaWindow::createNSWindow()
 
         if (m_isNSWindowChild)
             [window setHasShadow:NO];
-        else
-            setWindowShadow(flags);
-
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_7
-        if (QSysInfo::QSysInfo::MacintoshVersion >= QSysInfo::MV_10_7) {
-            if (flags & Qt::WindowFullscreenButtonHint)
-                [window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
-        }
-#endif
 
         createdWindow = window;
     }
