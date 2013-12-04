@@ -923,6 +923,7 @@ void QCocoaWindow::windowDidResize()
     if (m_isNSWindowChild)
         return;
 
+    clipChildWindows();
     [m_qtView updateGeometry];
 }
 bool QCocoaWindow::windowShouldClose()
