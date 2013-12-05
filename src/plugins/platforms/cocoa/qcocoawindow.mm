@@ -1000,28 +1000,22 @@ void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
         setWindowState(window()->windowState());
     } else if (m_isNSWindowChild) {
         // Use NSWindow for child QWindows
-        qDebug() << "";
-        qDebug() << "create child nswindow";
-
         m_nsWindow = createNSWindow();
         setNSWindow(m_nsWindow);
-
-        qDebug() << "child window" << window();
-        qDebug() << "child nswindow" << QString::fromNSString([m_nsWindow description]);
-
-        qDebug() << "parent window" << parentWindow->window();
-        qDebug() << "parent nswindow" << QString::fromNSString([m_parentCocoaWindow->m_nsWindow description]);
-        qDebug() << "";
-
-
         setCocoaGeometry(window()->geometry());
+
         QList<QCocoaWindow *> &siblings = m_parentCocoaWindow->m_childWindows;
         if (siblings.contains(this)) {
-            m_parentCocoaWindow->reinsertChildWindow(this);
+            if (!m_hiddenByClipping)
+                m_parentCocoaWindow->reinsertChildWindow(this);
         } else {
-            [m_parentCocoaWindow->m_nsWindow addChildWindow:m_nsWindow ordered:NSWindowAbove];
+            if (!m_hiddenByClipping)
+                [m_parentCocoaWindow->m_nsWindow addChildWindow:m_nsWindow ordered:NSWindowAbove];
             siblings.append(this);
         }
+        qDebug() << "recreated child nswindow" << QString::fromNSString([m_nsWindow description]);
+        qDebug() << "parent nswindow" << QString::fromNSString([m_parentCocoaWindow->m_nsWindow description]);
+        qDebug() << "";
     } else {
         // Child windows have no NSWindow, link the NSViews instead.
         [m_parentCocoaWindow->m_contentView addSubview : m_contentView];
