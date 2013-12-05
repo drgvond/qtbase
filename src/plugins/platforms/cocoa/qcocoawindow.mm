@@ -335,7 +335,8 @@ void QCocoaWindow::setCocoaGeometry(const QRect &rect)
 
     if (m_isNSWindowChild) {
         QPlatformWindow::setGeometry(rect);
-        NSRect parentWindowFrame = [m_nsWindow.parentWindow contentRectForFrameRect:m_nsWindow.parentWindow.frame];
+        NSWindow *parentNSWindow = static_cast<QCocoaWindow *>(parent())->m_nsWindow;
+        NSRect parentWindowFrame = [parentNSWindow contentRectForFrameRect:parentNSWindow.frame];
         clipWindow(parentWindowFrame);
 
         // call this here: updateGeometry in qnsview.mm is a no-op for this case
@@ -375,17 +376,17 @@ void QCocoaWindow::clipWindow(const NSRect &clipRect)
 
     if (NSIsEmptyRect(clippedWindowRect)) {
         if (!m_hiddenByClipping) {
-            m_hiddenByClipping = true;
             [m_nsWindow orderOut:nil];
+            m_hiddenByClipping = true;
         }
     } else {
+        [m_nsWindow setFrame:clippedWindowRect display:YES animate:NO];
         if (m_hiddenByClipping) {
             m_hiddenByClipping = false;
             [m_nsWindow orderFront:nil];
             if (QCocoaWindow *parentWindow = static_cast<QCocoaWindow *>(parent()))
                 parentWindow->reinsertChildWindow(this);
         }
-        [m_nsWindow setFrame:clippedWindowRect display:YES animate:NO];
     }
 
     // recurse
@@ -397,7 +398,9 @@ void QCocoaWindow::clipWindow(const NSRect &clipRect)
 void QCocoaWindow::setVisible(bool visible)
 {
     if (m_isNSWindowChild) {
-        qDebug() << "setting visible to" << visible << "parent" << QString::fromNSString([m_nsWindow.parentWindow description]);
+        qDebug() << "setting visible to" << visible << "clipped" << m_hiddenByClipping << QString::fromNSString([m_nsWindow description]);
+        if (m_hiddenByClipping)
+            return;
     }
 
     QCocoaAutoReleasePool pool;
@@ -719,15 +722,17 @@ void QCocoaWindow::raise()
         QList<QCocoaWindow *> &siblings = static_cast<QCocoaWindow *>(parent())->m_childWindows;
         siblings.removeOne(this);
         siblings.append(this);
+        if (m_hiddenByClipping)
+            return;
     }
     if ([m_nsWindow isVisible]) {
         if (m_isNSWindowChild) {
             // -[NSWindow orderFront:] doesn't work with attached windows.
             // The only solution is to remove and add the child window.
             // This will place it on top of all the other NSWindows.
-            NSWindow *parent = m_nsWindow.parentWindow;
-            [parent removeChildWindow:m_nsWindow];
-            [parent addChildWindow:m_nsWindow ordered:NSWindowAbove];
+            NSWindow *parentNSWindow = static_cast<QCocoaWindow *>(parent())->m_nsWindow;
+            [parentNSWindow removeChildWindow:m_nsWindow];
+            [parentNSWindow addChildWindow:m_nsWindow ordered:NSWindowAbove];
         } else {
             [m_nsWindow orderFront: m_nsWindow];
         }
@@ -742,6 +747,8 @@ void QCocoaWindow::lower()
         QList<QCocoaWindow *> &siblings = static_cast<QCocoaWindow *>(parent())->m_childWindows;
         siblings.removeOne(this);
         siblings.prepend(this);
+        if (m_hiddenByClipping)
+            return;
     }
     if ([m_nsWindow isVisible]) {
         if (m_isNSWindowChild) {
@@ -749,12 +756,12 @@ void QCocoaWindow::lower()
             // The only solution is to remove and add all the child windows except this one.
             // This will keep the current window at the bottom while adding the others on top of it,
             // hopefully in the same order (this is not documented anywhere in the Cocoa documentation).
-            NSWindow *parent = m_nsWindow.parentWindow;
-            NSArray *children = [parent.childWindows copy];
+            NSWindow *parentNSWindow = static_cast<QCocoaWindow *>(parent())->m_nsWindow;
+            NSArray *children = [parentNSWindow.childWindows copy];
             for (NSWindow *child in children)
                 if (m_nsWindow != child) {
-                    [parent removeChildWindow:child];
-                    [parent addChildWindow:child ordered:NSWindowAbove];
+                    [parentNSWindow removeChildWindow:child];
+                    [parentNSWindow addChildWindow:child ordered:NSWindowAbove];
                 }
         } else {
             [m_nsWindow orderBack: m_nsWindow];
