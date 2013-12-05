@@ -194,6 +194,7 @@ public: // for QNSView
     bool m_contentViewIsEmbedded; // true if the m_contentView is actually embedded in a "foreign" NSView hiearchy
     bool m_contentViewIsToBeEmbedded; // true if the m_contentView is intended to be embedded in a "foreign" NSView hiearchy
 
+    QCocoaWindow *m_parentCocoaWindow;
     bool m_isNSWindowChild; // this window is a non-top level QWindow with a NSWindow.
     QList<QCocoaWindow *> m_childWindows;
 

@@ -239,6 +239,7 @@ QCocoaWindow::QCocoaWindow(QWindow *tlw)
     , m_nsWindow(0)
     , m_contentViewIsEmbedded(false)
     , m_contentViewIsToBeEmbedded(false)
+    , m_parentCocoaWindow(0)
     , m_isNSWindowChild(false)
     , m_nsWindowDelegate(0)
     , m_synchedWindowState(Qt::WindowActive)
@@ -301,9 +302,9 @@ QCocoaWindow::~QCocoaWindow()
     clearNSWindow(m_nsWindow);
     if (parent()) {
         [m_contentView removeFromSuperview];
-        if (m_isNSWindowChild)
-            static_cast<QCocoaWindow *>(parent())->m_childWindows.removeOne(this);
     }
+    if (m_isNSWindowChild)
+        m_parentCocoaWindow->m_childWindows.removeOne(this);
     [m_contentView release];
     [m_nsWindow release];
     [m_nsWindowDelegate release];
@@ -335,7 +336,7 @@ void QCocoaWindow::setCocoaGeometry(const QRect &rect)
 
     if (m_isNSWindowChild) {
         QPlatformWindow::setGeometry(rect);
-        NSWindow *parentNSWindow = static_cast<QCocoaWindow *>(parent())->m_nsWindow;
+        NSWindow *parentNSWindow = m_parentCocoaWindow->m_nsWindow;
         NSRect parentWindowFrame = [parentNSWindow contentRectForFrameRect:parentNSWindow.frame];
         clipWindow(parentWindowFrame);
 
@@ -384,8 +385,7 @@ void QCocoaWindow::clipWindow(const NSRect &clipRect)
         if (m_hiddenByClipping) {
             m_hiddenByClipping = false;
             [m_nsWindow orderFront:nil];
-            if (QCocoaWindow *parentWindow = static_cast<QCocoaWindow *>(parent()))
-                parentWindow->reinsertChildWindow(this);
+            m_parentCocoaWindow->reinsertChildWindow(this);
         }
     }
 
@@ -469,10 +469,9 @@ void QCocoaWindow::setVisible(bool visible)
                     [m_nsWindow makeKeyAndOrderFront:nil];
                 } else {
                     [m_nsWindow orderFront: nil];
-                    if (m_isNSWindowChild && parent()) {
+                    if (m_isNSWindowChild) {
                         setCocoaGeometry(window()->geometry());
-                        QCocoaWindow *parentWindow = static_cast<QCocoaWindow *>(parent());
-                        parentWindow->reinsertChildWindow(this);
+                        m_parentCocoaWindow->reinsertChildWindow(this);
                     }
                 }
 
@@ -719,7 +718,7 @@ void QCocoaWindow::raise()
     if (!m_nsWindow)
         return;
     if (m_isNSWindowChild) {
-        QList<QCocoaWindow *> &siblings = static_cast<QCocoaWindow *>(parent())->m_childWindows;
+        QList<QCocoaWindow *> &siblings = m_parentCocoaWindow->m_childWindows;
         siblings.removeOne(this);
         siblings.append(this);
         if (m_hiddenByClipping)
@@ -730,7 +729,7 @@ void QCocoaWindow::raise()
             // -[NSWindow orderFront:] doesn't work with attached windows.
             // The only solution is to remove and add the child window.
             // This will place it on top of all the other NSWindows.
-            NSWindow *parentNSWindow = static_cast<QCocoaWindow *>(parent())->m_nsWindow;
+            NSWindow *parentNSWindow = m_parentCocoaWindow->m_nsWindow;
             [parentNSWindow removeChildWindow:m_nsWindow];
             [parentNSWindow addChildWindow:m_nsWindow ordered:NSWindowAbove];
         } else {
@@ -744,7 +743,7 @@ void QCocoaWindow::lower()
     if (!m_nsWindow)
         return;
     if (m_isNSWindowChild) {
-        QList<QCocoaWindow *> &siblings = static_cast<QCocoaWindow *>(parent())->m_childWindows;
+        QList<QCocoaWindow *> &siblings = m_parentCocoaWindow->m_childWindows;
         siblings.removeOne(this);
         siblings.prepend(this);
         if (m_hiddenByClipping)
@@ -756,7 +755,7 @@ void QCocoaWindow::lower()
             // The only solution is to remove and add all the child windows except this one.
             // This will keep the current window at the bottom while adding the others on top of it,
             // hopefully in the same order (this is not documented anywhere in the Cocoa documentation).
-            NSWindow *parentNSWindow = static_cast<QCocoaWindow *>(parent())->m_nsWindow;
+            NSWindow *parentNSWindow = m_parentCocoaWindow->m_nsWindow;
             NSArray *children = [parentNSWindow.childWindows copy];
             for (NSWindow *child in children)
                 if (m_nsWindow != child) {
@@ -985,6 +984,7 @@ void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
     }
 
     m_isNSWindowChild = (parentWindow != 0) && enableNSWindowChild();
+    m_parentCocoaWindow = const_cast<QCocoaWindow *>(static_cast<const QCocoaWindow *>(parentWindow));
 
     if (m_contentViewIsToBeEmbedded) {
         // An embedded window doesn't have its own NSWindow.
@@ -1009,25 +1009,22 @@ void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
         qDebug() << "child window" << window();
         qDebug() << "child nswindow" << QString::fromNSString([m_nsWindow description]);
 
-        QCocoaWindow *parentCococaWindow = const_cast<QCocoaWindow *>(static_cast<const QCocoaWindow *>(parentWindow));
-
         qDebug() << "parent window" << parentWindow->window();
-        qDebug() << "parent nswindow" << QString::fromNSString([parentCococaWindow->m_nsWindow description]);
+        qDebug() << "parent nswindow" << QString::fromNSString([m_parentCocoaWindow->m_nsWindow description]);
         qDebug() << "";
 
 
         setCocoaGeometry(window()->geometry());
-        QList<QCocoaWindow *> &siblings = parentCococaWindow->m_childWindows;
+        QList<QCocoaWindow *> &siblings = m_parentCocoaWindow->m_childWindows;
         if (siblings.contains(this)) {
-            parentCococaWindow->reinsertChildWindow(this);
+            m_parentCocoaWindow->reinsertChildWindow(this);
         } else {
-            [parentCococaWindow->m_nsWindow addChildWindow:m_nsWindow ordered:NSWindowAbove];
+            [m_parentCocoaWindow->m_nsWindow addChildWindow:m_nsWindow ordered:NSWindowAbove];
             siblings.append(this);
         }
     } else {
         // Child windows have no NSWindow, link the NSViews instead.
-        const QCocoaWindow *parentCococaWindow = static_cast<const QCocoaWindow *>(parentWindow);
-        [parentCococaWindow->m_contentView addSubview : m_contentView];
+        [m_parentCocoaWindow->m_contentView addSubview : m_contentView];
         QRect rect = window()->geometry();
         NSRect frame = NSMakeRect(rect.x(), rect.y(), rect.width(), rect.height());
         [m_contentView setFrame:frame];
