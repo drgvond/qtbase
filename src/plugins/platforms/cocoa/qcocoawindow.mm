@@ -303,8 +303,6 @@ QCocoaWindow::~QCocoaWindow()
     if (parent()) {
         [m_contentView removeFromSuperview];
     }
-    if (m_isNSWindowChild)
-        m_parentCocoaWindow->m_childWindows.removeOne(this);
     [m_contentView release];
     [m_nsWindow release];
     [m_nsWindowDelegate release];
@@ -1158,6 +1156,8 @@ void QCocoaWindow::clearNSWindow(NSWindow *window)
     if (m_isNSWindowChild) {
         [[NSNotificationCenter defaultCenter] removeObserver:m_contentView
                                               name:nil object:window];
+        m_parentCocoaWindow->m_childWindows.removeOne(this);
+        [m_parentCocoaWindow->m_nsWindow removeChildWindow:m_nsWindow];
     }
 }
 
