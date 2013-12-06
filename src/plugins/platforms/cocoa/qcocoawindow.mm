@@ -393,6 +393,14 @@ void QCocoaWindow::clipWindow(const NSRect &clipRect)
     }
 }
 
+void QCocoaWindow::closeChildWindows()
+{
+    foreach (QCocoaWindow *childWindow, m_childWindows) {
+        [childWindow->m_nsWindow orderOut:nil];
+        childWindow->closeChildWindows();
+    }
+}
+
 void QCocoaWindow::setVisible(bool visible)
 {
     if (m_isNSWindowChild) {
@@ -515,6 +523,7 @@ void QCocoaWindow::setVisible(bool visible)
                     [NSApp endSheet:m_nsWindow];
                 [m_nsWindow orderOut:m_nsWindow];
             }
+            closeChildWindows();
         } else {
             [m_contentView setHidden:YES];
         }
