@@ -107,7 +107,8 @@ public:
     void setCocoaGeometry(const QRect &rect);
     void clipChildWindows();
     void clipWindow(const NSRect &clipRect);
-    void closeChildWindows();
+    void show(bool becauseOfAncestor = false);
+    void hide(bool becauseOfAncestor = false);
     void setVisible(bool visible);
     void setWindowFlags(Qt::WindowFlags flags);
     void setWindowState(Qt::WindowState state);
@@ -219,6 +220,7 @@ public: // for QNSView
     bool m_resizableTransientParent;
     bool m_overrideBecomeKey;
     bool m_hiddenByClipping;
+    bool m_hiddenByAncestor;
 
     static const int NoAlertRequest;
     NSInteger m_alertRequest;

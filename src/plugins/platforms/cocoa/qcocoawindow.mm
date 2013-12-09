@@ -256,6 +256,7 @@ QCocoaWindow::QCocoaWindow(QWindow *tlw)
     , m_resizableTransientParent(false)
     , m_overrideBecomeKey(false)
     , m_hiddenByClipping(false)
+    , m_hiddenByAncestor(false)
     , m_alertRequest(NoAlertRequest)
     , monitor(nil)
 {
@@ -375,6 +376,7 @@ void QCocoaWindow::clipWindow(const NSRect &clipRect)
 
     if (NSIsEmptyRect(clippedWindowRect)) {
         if (!m_hiddenByClipping) {
+            // We dont call hide() here as we will recurse further down
             [m_nsWindow orderOut:nil];
             m_hiddenByClipping = true;
         }
@@ -382,8 +384,10 @@ void QCocoaWindow::clipWindow(const NSRect &clipRect)
         [m_nsWindow setFrame:clippedWindowRect display:YES animate:NO];
         if (m_hiddenByClipping) {
             m_hiddenByClipping = false;
-            [m_nsWindow orderFront:nil];
-            m_parentCocoaWindow->reinsertChildWindow(this);
+            if (!m_hiddenByAncestor) {
+                [m_nsWindow orderFront:nil];
+                m_parentCocoaWindow->reinsertChildWindow(this);
+            }
         }
     }
 
@@ -393,11 +397,46 @@ void QCocoaWindow::clipWindow(const NSRect &clipRect)
     }
 }
 
-void QCocoaWindow::closeChildWindows()
+void QCocoaWindow::hide(bool becauseOfAncestor)
 {
-    foreach (QCocoaWindow *childWindow, m_childWindows) {
-        [childWindow->m_nsWindow orderOut:nil];
-        childWindow->closeChildWindows();
+    bool visible = [m_nsWindow isVisible];
+
+    if (!m_hiddenByAncestor && !visible) // Already explicitely hidden
+        return;
+    if (m_hiddenByAncestor && becauseOfAncestor) // Trying to hide some child again
+        return;
+
+    m_hiddenByAncestor = becauseOfAncestor;
+
+    if (!visible) // Could have been clipped before
+        return;
+
+    foreach (QCocoaWindow *childWindow, m_childWindows)
+        childWindow->hide(true);
+
+    [m_nsWindow orderOut:nil];
+}
+
+void QCocoaWindow::show(bool becauseOfAncestor)
+{
+    if ([m_nsWindow isVisible])
+        return;
+
+    if (m_parentCocoaWindow && ![m_parentCocoaWindow->m_nsWindow isVisible]) {
+        m_hiddenByAncestor = true; // Parent still hidden, don't show now
+    } else if ((becauseOfAncestor == m_hiddenByAncestor) // Was NEITHER explicitely hidden
+               && !m_hiddenByClipping) { // ... NOR clipped
+        if (m_isNSWindowChild) {
+            m_hiddenByAncestor = false;
+            setCocoaGeometry(window()->geometry());
+        }
+        if (!m_hiddenByClipping) { // setCocoaGeometry() can change the clipping status
+            [m_nsWindow orderFront:nil];
+            if (m_isNSWindowChild)
+                m_parentCocoaWindow->reinsertChildWindow(this);
+            foreach (QCocoaWindow *childWindow, m_childWindows)
+                childWindow->show(true);
+        }
     }
 }
 
@@ -473,12 +512,10 @@ void QCocoaWindow::setVisible(bool visible)
                     m_hasModalSession = true;
                 } else if ([m_nsWindow canBecomeKeyWindow]) {
                     [m_nsWindow makeKeyAndOrderFront:nil];
+                    foreach (QCocoaWindow *childWindow, m_childWindows)
+                        childWindow->show(true);
                 } else {
-                    [m_nsWindow orderFront: nil];
-                    if (m_isNSWindowChild) {
-                        setCocoaGeometry(window()->geometry());
-                        m_parentCocoaWindow->reinsertChildWindow(this);
-                    }
+                    show();
                 }
 
                 // We want the events to properly reach the popup, dialog, and tool
@@ -508,7 +545,7 @@ void QCocoaWindow::setVisible(bool visible)
                 cocoaEventDispatcherPrivate->endModalSession(window());
                 m_hasModalSession = false;
 
-                [m_nsWindow orderOut:m_nsWindow];
+                hide();
                 if (m_nsWindow == [NSApp keyWindow] && !cocoaEventDispatcherPrivate->currentModalSession()) {
                     // Probably because we call runModalSession: outside [NSApp run] in QCocoaEventDispatcher
                     // (e.g., when show()-ing a modal QDialog instead of exec()-ing it), it can happen that
@@ -521,9 +558,8 @@ void QCocoaWindow::setVisible(bool visible)
             } else {
                 if ([m_nsWindow isSheet])
                     [NSApp endSheet:m_nsWindow];
-                [m_nsWindow orderOut:m_nsWindow];
+                hide();
             }
-            closeChildWindows();
         } else {
             [m_contentView setHidden:YES];
         }
