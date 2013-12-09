@@ -113,8 +113,8 @@ void printWindowHierarchy(NSWindow *win, NSWindow *current = nil, int indent = 1
     }
     NSString *spaces = [(win == current ? @"*" : @"") stringByPaddingToLength:indent withString:@" " startingAtIndex:0];
     NSLog(@"%@%@", spaces, win);
-    for (NSWindow *child in win.childWindows)
-        printWindowHierarchy(child, current, indent + 4);
+    foreach (QCocoaWindow *child, ((QNSWindow *)win)->m_cocoaPlatformWindow->m_childWindows)
+        printWindowHierarchy(child->m_nsWindow, current, indent + 4);
 }
 
 @implementation QNSWindow
