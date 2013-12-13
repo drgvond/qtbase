@@ -119,6 +119,23 @@ void printWindowHierarchy(NSWindow *win, NSWindow *current = nil, int indent = 1
 
 @implementation QNSWindow
 
+- (id)initWithContentRect:(NSRect)contentRect
+      styleMask:(NSUInteger)windowStyle
+      qPlatformWindow:(QCocoaWindow *)qpw
+{
+    self = [super initWithContentRect:contentRect
+            styleMask:windowStyle
+            backing:NSBackingStoreBuffered
+            defer:NO]; // Deferring window creation breaks OpenGL (the GL context is
+                       // set up before the window is shown and needs a proper window)
+
+    if (self) {
+        m_cocoaPlatformWindow = qpw;
+        self.releasedWhenClosed = YES;
+    }
+    return self;
+}
+
 - (NSString *)description
 {
     NSString *sd = [super description];
@@ -133,6 +150,15 @@ void printWindowHierarchy(NSWindow *win, NSWindow *current = nil, int indent = 1
     // order keep the active apperance of the top-level window.
     if (!m_cocoaPlatformWindow || m_cocoaPlatformWindow->m_isNSWindowChild)
         return NO;
+
+    // Only tool or dialog windows should become key:
+    if (m_cocoaPlatformWindow && m_cocoaPlatformWindow->windowShouldBehaveAsPanel()) {
+        Qt::WindowType type = m_cocoaPlatformWindow->window()->type();
+        if (m_cocoaPlatformWindow->m_overrideBecomeKey
+            || type == Qt::Tool || type == Qt::Dialog)
+            return YES;
+        return NO;
+    }
 
     // All other windows can become the key window. This includes
     // popup windows such as the combobox popup, which is a title-bar
@@ -149,6 +175,9 @@ void printWindowHierarchy(NSWindow *win, NSWindow *current = nil, int indent = 1
     if (!m_cocoaPlatformWindow || m_cocoaPlatformWindow->window()->transientParent())
         canBecomeMain = NO;
 
+    if (m_cocoaPlatformWindow && m_cocoaPlatformWindow->windowShouldBehaveAsPanel())
+        canBecomeMain = NO;
+
     return canBecomeMain;
 }
 
@@ -156,56 +185,9 @@ void printWindowHierarchy(NSWindow *win, NSWindow *current = nil, int indent = 1
 {
     [super sendEvent: theEvent];
 
-    if (!m_cocoaPlatformWindow)
-        return;
-
-    if (m_cocoaPlatformWindow->frameStrutEventsEnabled() && isMouseEvent(theEvent)) {
-        NSPoint loc = [theEvent locationInWindow];
-        NSRect windowFrame = [self legacyConvertRectFromScreen:[self frame]];
-        NSRect contentFrame = [[self contentView] frame];
-        if (NSMouseInRect(loc, windowFrame, NO) &&
-            !NSMouseInRect(loc, contentFrame, NO))
-        {
-            QNSView *contentView = (QNSView *) m_cocoaPlatformWindow->contentView();
-            [contentView handleFrameStrutMouseEvent: theEvent];
         }
     }
-}
 
-- (void)clearPlatformWindow
-{
-    m_cocoaPlatformWindow = 0;
-}
-
-@end
-
-@implementation QNSPanel
-
-- (NSString *)description
-{
-    NSString *sd = [super description];
-    NSString *qWindowName = QCFString::toNSString(m_cocoaPlatformWindow && m_cocoaPlatformWindow->window() ?
-                                                      m_cocoaPlatformWindow->window()->objectName() : "<null>");
-    return [NSString stringWithFormat:@"%@ \"%@\"", sd, qWindowName];
-}
-
-- (BOOL)canBecomeKeyWindow
-{
-    if (!m_cocoaPlatformWindow)
-        return NO;
-
-    // Only tool or dialog windows should become key:
-    if (m_cocoaPlatformWindow
-        && (m_cocoaPlatformWindow->m_overrideBecomeKey ||
-            m_cocoaPlatformWindow->window()->type() == Qt::Tool ||
-            m_cocoaPlatformWindow->window()->type() == Qt::Dialog))
-        return YES;
-    return NO;
-}
-
-- (void) sendEvent: (NSEvent*) theEvent
-{
-    [super sendEvent: theEvent];
 
     if (!m_cocoaPlatformWindow)
         return;
@@ -975,6 +957,7 @@ void QCocoaWindow::windowDidResize()
     clipChildWindows();
     [m_qtView updateGeometry];
 }
+
 bool QCocoaWindow::windowShouldClose()
 {
     bool accepted = false;
@@ -997,6 +980,14 @@ bool QCocoaWindow::windowIsPopupType(Qt::WindowType type) const
         return false; // Qt::Tool has the Popup bit set but isn't, at least on Mac.
 
     return ((type & Qt::Popup) == Qt::Popup);
+}
+
+bool QCocoaWindow::windowShouldBehaveAsPanel() const
+{
+    // Before merging QNSPanel and QNSWindow, we used NSPanel for popup-type
+    // windows (Popup, Tool, ToolTip, SplashScreen) and dialogs
+    Qt::WindowType type = window()->type();
+    return (type & Qt::Popup) == Qt::Popup || (type & Qt::Dialog) == Qt::Dialog;
 }
 
 void QCocoaWindow::setCurrentContext(QCocoaGLContext *context)
@@ -1110,52 +1101,23 @@ NSWindow * QCocoaWindow::createNSWindow()
         styleMask = windowStyleMask(flags);
     }
 
-    NSWindow *createdWindow = 0;
+    QNSWindow *createdWindow = [[QNSWindow alloc] initWithContentRect:frame styleMask: styleMask qPlatformWindow:this];
 
-    // Use NSPanel for popup-type windows. (Popup, Tool, ToolTip, SplashScreen)
-    // and dialogs
-    if ((type & Qt::Popup) == Qt::Popup || (type & Qt::Dialog) == Qt::Dialog) {
-        QNSPanel *window;
-        window  = [[QNSPanel alloc] initWithContentRect:frame
-                                         styleMask: styleMask
-                                         backing:NSBackingStoreBuffered
-                                         defer:NO]; // Deferring window creation breaks OpenGL (the GL context is set up
-                                                    // before the window is shown and needs a proper window.).
-        if (m_isNSWindowChild)
-            [window setHasShadow:NO];
-        else if ((type & Qt::Popup) == Qt::Popup)
-            [window setHasShadow:YES];
-        [window setHidesOnDeactivate: NO];
+    if (m_isNSWindowChild)
+        createdWindow.hasShadow = NO;
+    createdWindow.hidesOnDeactivate = NO;
 
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_7
-        if (QSysInfo::QSysInfo::MacintoshVersion >= QSysInfo::MV_10_7) {
-            // Make popup winows show on the same desktop as the parent full-screen window.
-            [window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenAuxiliary];
+    if (QSysInfo::QSysInfo::MacintoshVersion >= QSysInfo::MV_10_7) {
+        // Make popup winows show on the same desktop as the parent full-screen window.
+        [createdWindow setCollectionBehavior:windowShouldBehaveAsPanel() ? NSWindowCollectionBehaviorFullScreenAuxiliary
+                                                                         : NSWindowCollectionBehaviorFullScreenPrimary];
 
-            if ((type & Qt::Popup) == Qt::Popup)
-                [window setAnimationBehavior:NSWindowAnimationBehaviorUtilityWindow];
-        }
-#endif
-        window->m_cocoaPlatformWindow = this;
-        createdWindow = window;
-    } else {
-        QNSWindow *window;
-        window  = [[QNSWindow alloc] initWithContentRect:frame
-                                         styleMask: styleMask
-                                         backing:NSBackingStoreBuffered
-                                         defer:NO]; // Deferring window creation breaks OpenGL (the GL context is set up
-                                                    // before the window is shown and needs a proper window.).
-        window->m_cocoaPlatformWindow = this;
+        if ((type & Qt::Popup) == Qt::Popup)
+            [createdWindow setAnimationBehavior:NSWindowAnimationBehaviorUtilityWindow];
 
-        if (m_isNSWindowChild)
-            [window setHasShadow:NO];
-
-        createdWindow = window;
-    }
-
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_7
-    if ([createdWindow respondsToSelector:@selector(setRestorable:)])
         [createdWindow setRestorable: NO];
+    }
 #endif
 
     NSInteger level = windowLevel(flags);

@@ -52,22 +52,16 @@
 
 QT_FORWARD_DECLARE_CLASS(QCocoaWindow)
 
-@interface QNSWindow : NSWindow {
-    @public QCocoaWindow *m_cocoaPlatformWindow;
-}
-
-- (void)clearPlatformWindow;
-- (BOOL)canBecomeKeyWindow;
-@end
-
-@interface QNSPanel : NSPanel {
-    @public QCocoaWindow *m_cocoaPlatformWindow;
-}
-- (void)clearPlatformWindow;
-- (BOOL)canBecomeKeyWindow;
-@end
-
 @class QNSWindowDelegate;
+
+@interface QNSWindow : NSPanel {
+@public
+   QCocoaWindow *m_cocoaPlatformWindow;
+}
+
+- (void)clearPlatformWindow;
+- (BOOL)canBecomeKeyWindow;
+@end
 
 QT_BEGIN_NAMESPACE
 
@@ -144,6 +138,7 @@ public:
     void windowDidResize();
     bool windowShouldClose();
     bool windowIsPopupType(Qt::WindowType type = Qt::Widget) const;
+    bool windowShouldBehaveAsPanel() const;
 
     void setSynchedWindowStateFromWindow();
 
