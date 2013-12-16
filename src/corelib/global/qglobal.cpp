@@ -76,7 +76,7 @@
 #include <CoreServices/CoreServices.h>
 #endif
 
-#if defined(Q_OS_ANDROID)
+#if defined(Q_OS_ANDROID) && !defined(Q_OS_ANDROID_NO_SDK)
 #include <private/qjni_p.h>
 #endif
 
@@ -556,10 +556,8 @@ Q_STATIC_ASSERT_X(UCHAR_MAX == 255, "Qt assumes that char is 8 bits");
     \typedef qreal
     \relates <QtGlobal>
 
-    Typedef for \c double on all platforms except for those using CPUs with
-    ARM architectures.
-    On ARM-based platforms, \c qreal is a typedef for \c float for performance
-    reasons.
+    Typedef for \c double unless Qt is configured with the
+    \c{-qreal float} option.
 */
 
 /*! \typedef uchar
@@ -2387,7 +2385,7 @@ typedef uint SeedStorageType;
 typedef QThreadStorage<SeedStorageType *> SeedStorage;
 Q_GLOBAL_STATIC(SeedStorage, randTLS)  // Thread Local Storage for seed value
 
-#elif defined(Q_OS_ANDROID)
+#elif defined(Q_OS_ANDROID) && !defined(Q_OS_ANDROID_NO_SDK)
 typedef QThreadStorage<QJNIObjectPrivate> AndroidRandomStorage;
 Q_GLOBAL_STATIC(AndroidRandomStorage, randomTLS)
 #endif
@@ -2423,7 +2421,7 @@ void qsrand(uint seed)
         //global static object, fallback to srand(seed)
         srand(seed);
     }
-#elif defined(Q_OS_ANDROID)
+#elif defined(Q_OS_ANDROID) && !defined(Q_OS_ANDROID_NO_SDK)
     if (randomTLS->hasLocalData()) {
         randomTLS->localData().callMethod<void>("setSeed", "(J)V", jlong(seed));
         return;
@@ -2479,7 +2477,7 @@ int qrand()
         //global static object, fallback to rand()
         return rand();
     }
-#elif defined(Q_OS_ANDROID)
+#elif defined(Q_OS_ANDROID) && !defined(Q_OS_ANDROID_NO_SDK)
     AndroidRandomStorage *randomStorage = randomTLS();
     if (!randomStorage)
         return rand();

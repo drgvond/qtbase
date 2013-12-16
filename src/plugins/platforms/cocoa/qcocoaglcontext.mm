@@ -165,6 +165,16 @@ QSurfaceFormat QCocoaGLContext::format() const
     return m_format;
 }
 
+void QCocoaGLContext::windowWasHidden()
+{
+    // If the window is hidden, we need to unset the m_currentWindow
+    // variable so that succeeding makeCurrent's will not abort prematurely
+    // because of the optimization in setActiveWindow.
+    // Doing a full doneCurrent here is not preferable, because the GL context
+    // might be rendering in a different thread at this time.
+    m_currentWindow.clear();
+}
+
 void QCocoaGLContext::swapBuffers(QPlatformSurface *surface)
 {
     QWindow *window = static_cast<QCocoaWindow *>(surface)->window();
@@ -182,8 +192,6 @@ bool QCocoaGLContext::makeCurrent(QPlatformSurface *surface)
     QWindow *window = static_cast<QCocoaWindow *>(surface)->window();
     setActiveWindow(window);
 
-    if (![m_context view])
-        return false;
     [m_context makeCurrentContext];
     update();
     return true;

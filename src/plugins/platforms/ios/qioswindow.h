@@ -74,6 +74,8 @@ public:
     void handleContentOrientationChange(Qt::ScreenOrientation orientation);
     void setVisible(bool visible);
 
+    bool isExposed() const Q_DECL_OVERRIDE;
+
     void raise() { raiseOrLower(true); }
     void lower() { raiseOrLower(false); }
     void requestActivateWindow();
@@ -85,7 +87,7 @@ public:
 
     WId winId() const { return WId(m_view); };
 
-    QIOSWindow *topLevelWindow() const;
+    QWindow *topLevelWindow() const;
 
 private:
     void applyGeometry(const QRect &rect);
