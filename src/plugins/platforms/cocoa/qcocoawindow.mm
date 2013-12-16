@@ -180,10 +180,6 @@ void printWindowHierarchy(NSWindow *win, NSWindow *current = nil, int indent = 1
 {
     [super sendEvent: theEvent];
 
-        }
-    }
-
-
     if (!m_cocoaPlatformWindow)
         return;
 
