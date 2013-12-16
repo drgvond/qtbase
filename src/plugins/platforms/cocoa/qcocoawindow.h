@@ -60,7 +60,6 @@ QT_FORWARD_DECLARE_CLASS(QCocoaWindow)
 }
 
 - (void)clearPlatformWindow;
-- (BOOL)canBecomeKeyWindow;
 @end
 
 QT_BEGIN_NAMESPACE
@@ -169,7 +168,7 @@ public:
 protected:
     bool enableNSWindowChild();
     void recreateWindow(const QPlatformWindow *parentWindow);
-    NSWindow *createNSWindow();
+    QNSWindow *createNSWindow();
     void setNSWindow(NSWindow *window);
     void clearNSWindow(NSWindow *window);
 
@@ -177,6 +176,7 @@ protected:
     QCocoaWindow *parentCocoaWindow() const;
     void syncWindowState(Qt::WindowState newState);
     void reinsertChildWindow(QCocoaWindow *child);
+    void removeChildWindow(QCocoaWindow *child);
 
 // private:
 public: // for QNSView
@@ -185,7 +185,7 @@ public: // for QNSView
 
     NSView *m_contentView;
     QNSView *m_qtView;
-    NSWindow *m_nsWindow;
+    QNSWindow *m_nsWindow;
 
     // TODO merge to one variable if possible
     bool m_contentViewIsEmbedded; // true if the m_contentView is actually embedded in a "foreign" NSView hiearchy
