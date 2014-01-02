@@ -642,8 +642,10 @@ static QTouchDevice *touchDevice = 0;
 {
     if (m_window->flags() & Qt::WindowTransparentForInput)
         return [super mouseDragged:theEvent];
-    if (!(m_buttons & Qt::LeftButton))
+    if (!(m_buttons & Qt::LeftButton)) {
         qWarning("QNSView mouseDragged: Internal mouse button tracking invalid (missing Qt::LeftButton)");
+        m_buttons |= Qt::LeftButton;
+    }
     [self handleMouseEvent:theEvent];
 }
 

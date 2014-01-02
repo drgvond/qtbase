@@ -57,6 +57,7 @@ QT_FORWARD_DECLARE_CLASS(QCocoaWindow)
 @interface QNSWindow : NSPanel {
 @public
    QCocoaWindow *m_cocoaPlatformWindow;
+   NSWindow *m_forwardWindow;
 }
 
 - (void)clearPlatformWindow;
