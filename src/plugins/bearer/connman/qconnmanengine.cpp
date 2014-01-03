@@ -267,7 +267,8 @@ QNetworkConfigurationManager::Capabilities QConnmanEngine::capabilities() const
 {
     return QNetworkConfigurationManager::ForcedRoaming |
             QNetworkConfigurationManager::DataStatistics |
-           QNetworkConfigurationManager::CanStartAndStopInterfaces;
+            QNetworkConfigurationManager::CanStartAndStopInterfaces |
+            QNetworkConfigurationManager::NetworkSessionRequired;
 }
 
 QNetworkSessionPrivate *QConnmanEngine::createSessionBackend()
@@ -349,7 +350,7 @@ void QConnmanEngine::configurationChange(const QString &id)
     QMutexLocker locker(&mutex);
 
     if (accessPointConfigurations.contains(id)) {
-
+        bool changed = false;
         QNetworkConfigurationPrivatePointer ptr = accessPointConfigurations.value(id);
 
         QString servicePath = serviceFromId(id);
@@ -367,17 +368,21 @@ void QConnmanEngine::configurationChange(const QString &id)
 
         if (ptr->name != networkName) {
             ptr->name = networkName;
+            changed = true;
         }
 
         if (ptr->state != curState) {
             ptr->state = curState;
+            changed = true;
         }
 
         ptr->mutex.unlock();
 
-        locker.unlock();
-        emit configurationChanged(ptr);
-        locker.relock();
+        if (changed) {
+            locker.unlock();
+            emit configurationChanged(ptr);
+            locker.relock();
+        }
     }
 
      locker.unlock();
@@ -490,6 +495,7 @@ void QConnmanEngine::removeConfiguration(const QString &id)
         serviceNetworks.removeOne(service);
 
         QNetworkConfigurationPrivatePointer ptr = accessPointConfigurations.take(id);
+        foundConfigurations.removeOne(ptr.data());
         locker.unlock();
         emit configurationRemoved(ptr);
         locker.relock();

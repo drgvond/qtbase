@@ -1185,6 +1185,12 @@ void QCocoaWindow::setNSWindow(NSWindow *window)
     // QCocoaWindow is deleted by Qt.
     [window setReleasedWhenClosed : NO];
 
+    if (m_qtView)
+        [[NSNotificationCenter defaultCenter] addObserver:m_qtView
+                                              selector:@selector(windowNotification:)
+                                              name:nil // Get all notifications
+                                              object:m_nsWindow];
+
     if (window.contentView != m_contentView) {
         [m_contentView setPostsFrameChangedNotifications: NO];
         [window setContentView:m_contentView];
