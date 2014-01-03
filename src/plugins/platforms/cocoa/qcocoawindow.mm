@@ -126,7 +126,6 @@ void printWindowHierarchy(NSWindow *win, NSWindow *current = nil, int indent = 1
 
     if (self) {
         m_cocoaPlatformWindow = qpw;
-        m_forwardWindow = nil;
 //        self.releasedWhenClosed = YES; // ### FIXME
     }
     return self;
@@ -179,30 +178,21 @@ void printWindowHierarchy(NSWindow *win, NSWindow *current = nil, int indent = 1
 
 - (void) sendEvent: (NSEvent*) theEvent
 {
-    if (m_forwardWindow) {
+    if (m_cocoaPlatformWindow->m_forwardWindow) {
         if (theEvent.type == NSLeftMouseUp || theEvent.type == NSLeftMouseDragged) {
-            NSPoint forwardLocation = [NSEvent mouseLocation];
-            forwardLocation = [m_forwardWindow convertRectFromScreen:NSMakeRect(forwardLocation.x, forwardLocation.y, 1, 1)].origin;
-            NSEvent *forwardEvent = [NSEvent mouseEventWithType:theEvent.type
-                    location:forwardLocation
-                    modifierFlags:theEvent.modifierFlags
-                    timestamp:theEvent.timestamp
-                    windowNumber:m_forwardWindow.windowNumber
-                    context:theEvent.context
-                    eventNumber:theEvent.eventNumber
-                    clickCount:theEvent.clickCount
-                    pressure:theEvent.pressure];
-            QNSView *forwardView = ((QNSWindow *)m_forwardWindow)->m_cocoaPlatformWindow->m_qtView;
+            QNSView *forwardView = m_cocoaPlatformWindow->m_qtView;
             if (theEvent.type == NSLeftMouseUp) {
-                [forwardView mouseUp:forwardEvent];
-                m_forwardWindow = nil;
+                [forwardView mouseUp:theEvent];
+                m_cocoaPlatformWindow->m_forwardWindow = 0;
             } else {
-                [forwardView setMouseButton:Qt::LeftButton];
-                [forwardView mouseDragged:forwardEvent];
+                [forwardView mouseDragged:theEvent];
             }
+
             return;
-        } else if (theEvent.type == NSLeftMouseDown) {
-            m_forwardWindow = nil;
+        }
+
+        if (theEvent.type == NSLeftMouseDown) {
+            m_cocoaPlatformWindow->m_forwardWindow = 0;
         }
     }
 
@@ -238,6 +228,7 @@ QCocoaWindow::QCocoaWindow(QWindow *tlw)
     , m_contentView(nil)
     , m_qtView(nil)
     , m_nsWindow(0)
+    , m_forwardWindow(0)
     , m_contentViewIsEmbedded(false)
     , m_contentViewIsToBeEmbedded(false)
     , m_parentCocoaWindow(0)
@@ -1079,7 +1070,7 @@ void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
         if (oldParentCocoaWindow) {
             if (!m_isNSWindowChild || oldParentCocoaWindow != m_parentCocoaWindow)
                 oldParentCocoaWindow->removeChildWindow(this);
-            m_nsWindow->m_forwardWindow = oldParentCocoaWindow->m_nsWindow;
+            m_forwardWindow = oldParentCocoaWindow;
         }
 
         setNSWindow(m_nsWindow);

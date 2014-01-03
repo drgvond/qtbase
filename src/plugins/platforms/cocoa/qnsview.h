@@ -96,7 +96,6 @@ QT_END_NAMESPACE
 - (void)convertFromScreen:(NSPoint)mouseLocation toWindowPoint:(QPointF *)qtWindowPoint andScreenPoint:(QPointF *)qtScreenPoint;
 
 - (void)resetMouseButtons;
-- (void)setMouseButton:(Qt::MouseButton)button;
 
 - (void)handleMouseEvent:(NSEvent *)theEvent;
 - (void)mouseDown:(NSEvent *)theEvent;

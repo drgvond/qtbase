@@ -553,25 +553,26 @@ static QTouchDevice *touchDevice = 0;
     m_buttons = Qt::NoButton;
 }
 
-- (void)setMouseButton:(Qt::MouseButton)button
-{
-    m_buttons |= button;
-}
-
 - (void)handleMouseEvent:(NSEvent *)theEvent
 {
     [self handleTabletEvent: theEvent];
 
     QPointF qtWindowPoint;
     QPointF qtScreenPoint;
-    [self convertFromScreen:[NSEvent mouseLocation] toWindowPoint:&qtWindowPoint andScreenPoint:&qtScreenPoint];
+    QNSView *targetView = self;
+    if (m_platformWindow && m_platformWindow->m_forwardWindow
+        && (theEvent.type == NSLeftMouseDragged || theEvent.type == NSLeftMouseUp)) {
+        targetView = m_platformWindow->m_forwardWindow->m_qtView;
+    }
+
+    [targetView convertFromScreen:[NSEvent mouseLocation] toWindowPoint:&qtWindowPoint andScreenPoint:&qtScreenPoint];
     ulong timestamp = [theEvent timestamp] * 1000;
 
     QCocoaDrag* nativeDrag = static_cast<QCocoaDrag *>(QGuiApplicationPrivate::platformIntegration()->drag());
     nativeDrag->setLastMouseEvent(theEvent, self);
 
     Qt::KeyboardModifiers keyboardModifiers = [QNSView convertKeyModifiers:[theEvent modifierFlags]];
-    QWindowSystemInterface::handleMouseEvent(m_window, timestamp, qtWindowPoint, qtScreenPoint, m_buttons, keyboardModifiers);
+    QWindowSystemInterface::handleMouseEvent(targetView->m_window, timestamp, qtWindowPoint, qtScreenPoint, m_buttons, keyboardModifiers);
 }
 
 - (void)handleFrameStrutMouseEvent:(NSEvent *)theEvent
