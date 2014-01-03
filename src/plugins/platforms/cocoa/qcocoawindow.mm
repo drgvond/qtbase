@@ -197,6 +197,7 @@ void printWindowHierarchy(NSWindow *win, NSWindow *current = nil, int indent = 1
                 [forwardView mouseUp:forwardEvent];
                 m_forwardWindow = nil;
             } else {
+                [forwardView setMouseButton:Qt::LeftButton];
                 [forwardView mouseDragged:forwardEvent];
             }
             return;
