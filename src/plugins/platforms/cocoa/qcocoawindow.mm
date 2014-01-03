@@ -1029,15 +1029,10 @@ QCocoaGLContext *QCocoaWindow::currentContext() const
     return m_glContext;
 }
 
-bool QCocoaWindow::enableNSWindowChild()
-{
-    return true; // ### read env. variable to switch on new behavior.
-}
-
 void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
 {
     bool wasNSWindowChild = m_isNSWindowChild;
-    m_isNSWindowChild = parentWindow && enableNSWindowChild();
+    m_isNSWindowChild = parentWindow && (window()->flags() & Qt::MacUseNSWindow);
     bool needsNSWindow = m_isNSWindowChild || !parentWindow;
 
     QCocoaWindow *oldParentCocoaWindow = m_parentCocoaWindow;

@@ -10235,6 +10235,14 @@ void QWidget::setAttribute(Qt::WidgetAttribute attribute, bool on)
 #endif //QT_NO_IM
         break;
     }
+    case Qt::WA_MacUseNativeNSWindow: {
+#ifdef Q_OS_OSX
+        QWindow *win = d->maybeTopData() ? d->maybeTopData()->window : 0;
+        if (win)
+            win->setFlags(win->flags() | Qt::MacUseNSWindow);
+#endif
+        break;
+    }
     case Qt::WA_PaintOnScreen:
         d->updateIsOpaque();
 #if defined(Q_WS_WIN) || defined(Q_WS_X11) || defined(Q_WS_MAC)

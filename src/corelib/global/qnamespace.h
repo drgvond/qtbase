@@ -300,6 +300,7 @@ public:
 
         WindowType_Mask = 0x000000ff,
         MSWindowsFixedSizeDialogHint = 0x00000100,
+        MacUseNSWindow = 0x00000100,
         MSWindowsOwnDC = 0x00000200,
         BypassWindowManagerHint = 0x00000400,
         X11BypassWindowManagerHint = BypassWindowManagerHint,
@@ -492,6 +493,7 @@ public:
 
         WA_X11DoNotAcceptFocus = 126,
         WA_MacNoShadow = 127,
+        WA_MacUseNativeNSWindow = 128,
 
         // Add new attributes before this line
         WA_AttributeCount

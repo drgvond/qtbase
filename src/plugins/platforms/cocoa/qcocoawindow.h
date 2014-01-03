@@ -168,7 +168,6 @@ public:
     void updateExposedGeometry();
     QWindow *childWindowAt(QPoint windowPoint);
 protected:
-    bool enableNSWindowChild();
     void recreateWindow(const QPlatformWindow *parentWindow);
     QNSWindow *createNSWindow();
     void setNSWindow(NSWindow *window);
