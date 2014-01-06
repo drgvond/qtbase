@@ -96,6 +96,7 @@ void QToolBarPrivate::init()
     q->setBackgroundRole(QPalette::Button);
     q->setAttribute(Qt::WA_Hover);
     q->setAttribute(Qt::WA_X11NetWmWindowTypeToolBar);
+    q->setAttribute(Qt::WA_MacUseNativeNSWindow);
 
     QStyle *style = q->style();
     int e = style->pixelMetric(QStyle::PM_ToolBarIconSize, 0, q);

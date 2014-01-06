@@ -578,6 +578,8 @@ void QDockWidgetPrivate::init()
 {
     Q_Q(QDockWidget);
 
+    q->setAttribute(Qt::WA_MacUseNativeNSWindow);
+
     QDockWidgetLayout *layout = new QDockWidgetLayout(q);
     layout->setSizeConstraint(QLayout::SetMinAndMaxSize);
 
