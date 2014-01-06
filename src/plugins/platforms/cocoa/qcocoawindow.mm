@@ -258,9 +258,6 @@ QCocoaWindow::QCocoaWindow(QWindow *tlw)
 #endif
     QCocoaAutoReleasePool pool;
 
-
-    m_isNSWindowChild = (tlw != 0) && enableNSWindowChild();
-
     if (tlw->type() == Qt::ForeignWindow) {
         NSView *foreignView = (NSView *)WId(tlw->property("_q_foreignWinId").value<WId>());
         setContentView(foreignView);
@@ -1037,6 +1034,13 @@ void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
 
     QCocoaWindow *oldParentCocoaWindow = m_parentCocoaWindow;
     m_parentCocoaWindow = const_cast<QCocoaWindow *>(static_cast<const QCocoaWindow *>(parentWindow));
+    if (m_parentCocoaWindow && m_isNSWindowChild) {
+        Qt::WindowFlags parentFlags = m_parentCocoaWindow->window()->flags();
+        if (!(parentFlags & Qt::MacUseNSWindow)) {
+            m_parentCocoaWindow->window()->setFlags(parentFlags | Qt::MacUseNSWindow);
+            m_parentCocoaWindow->recreateWindow(m_parentCocoaWindow->m_parentCocoaWindow);
+        }
+    }
 
     // Remove current window (if any)
     if (m_nsWindow && !needsNSWindow) {
