@@ -1207,8 +1207,7 @@
     \omitvalue WA_WState_WindowOpacitySet
     \omitvalue WA_WState_AcceptedTouchBeginEvent
     \omitvalue WA_MacNoShadow
-
-    \value WA_MacUseNativeNSWindow When WA_NativeWindow is set, the created QWindow
+    \omitvalue WA_MacUseNativeNSWindow When WA_NativeWindow is set, the created QWindow
     will use NSWindow instead of only NSView. \note This sets Qt::MacUseNSWindow on
     the QWindow and all its ancestors.
 */
@@ -2069,8 +2068,9 @@
     \value MacWindowToolBarButtonHint On Mac OS X adds a tool bar button (i.e.,
            the oblong button that is on the top right of windows that have toolbars).
 
-    \value MacUseNSWindow On Mac OS X makes the child QWindow to be an NSWindow.
+    \omitvalue MacUseNSWindow On Mac OS X makes the child QWindow to be an NSWindow.
            Setting this flag on a QWindow will force it on all of the window's ancestors.
+           \note Must be set before calling QWindow::create().
 
     \value WindowFullscreenButtonHint On Mac OS X adds a fullscreen button.
 
