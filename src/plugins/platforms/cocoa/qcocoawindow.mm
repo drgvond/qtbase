@@ -539,28 +539,27 @@ void QCocoaWindow::setVisible(bool visible)
         // qDebug() << "close" << this;
         if (m_glContext)
             m_glContext->windowWasHidden();
+        QCocoaEventDispatcher *cocoaEventDispatcher = qobject_cast<QCocoaEventDispatcher *>(QGuiApplication::instance()->eventDispatcher());
+        Q_ASSERT(cocoaEventDispatcher != 0);
+        QCocoaEventDispatcherPrivate *cocoaEventDispatcherPrivate = static_cast<QCocoaEventDispatcherPrivate *>(QObjectPrivate::get(cocoaEventDispatcher));
         if (m_nsWindow) {
             if (m_hasModalSession) {
-                QCocoaEventDispatcher *cocoaEventDispatcher = qobject_cast<QCocoaEventDispatcher *>(QGuiApplication::instance()->eventDispatcher());
-                Q_ASSERT(cocoaEventDispatcher != 0);
-                QCocoaEventDispatcherPrivate *cocoaEventDispatcherPrivate = static_cast<QCocoaEventDispatcherPrivate *>(QObjectPrivate::get(cocoaEventDispatcher));
                 cocoaEventDispatcherPrivate->endModalSession(window());
                 m_hasModalSession = false;
-
-                hide();
-                if (m_nsWindow == [NSApp keyWindow] && !cocoaEventDispatcherPrivate->currentModalSession()) {
-                    // Probably because we call runModalSession: outside [NSApp run] in QCocoaEventDispatcher
-                    // (e.g., when show()-ing a modal QDialog instead of exec()-ing it), it can happen that
-                    // the current NSWindow is still key after being ordered out. Then, after checking we
-                    // don't have any other modal session left, it's safe to make the main window key again.
-                    NSWindow *mainWindow = [NSApp mainWindow];
-                    if (mainWindow && [mainWindow canBecomeKeyWindow])
-                        [mainWindow makeKeyWindow];
-                }
             } else {
                 if ([m_nsWindow isSheet])
                     [NSApp endSheet:m_nsWindow];
-                hide();
+            }
+
+            hide();
+            if (m_nsWindow == [NSApp keyWindow] && !cocoaEventDispatcherPrivate->currentModalSession()) {
+                // Probably because we call runModalSession: outside [NSApp run] in QCocoaEventDispatcher
+                // (e.g., when show()-ing a modal QDialog instead of exec()-ing it), it can happen that
+                // the current NSWindow is still key after being ordered out. Then, after checking we
+                // don't have any other modal session left, it's safe to make the main window key again.
+                NSWindow *mainWindow = [NSApp mainWindow];
+                if (mainWindow && [mainWindow canBecomeKeyWindow])
+                    [mainWindow makeKeyWindow];
             }
         } else {
             [m_contentView setHidden:YES];
