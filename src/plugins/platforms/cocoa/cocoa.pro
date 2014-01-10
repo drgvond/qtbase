@@ -13,6 +13,7 @@ OBJECTIVE_SOURCES += main.mm \
     qnsviewaccessibility.mm \
     qcocoaautoreleasepool.mm \
     qnswindowdelegate.mm \
+    qinterstitialview.mm \
     qcocoaglcontext.mm \
     qcocoanativeinterface.mm \
     qcocoaeventdispatcher.mm \
@@ -50,6 +51,7 @@ HEADERS += qcocoaintegration.h \
     qnsview.h \
     qcocoaautoreleasepool.h \
     qnswindowdelegate.h \
+    qinterstitialview.h \
     qcocoaglcontext.h \
     qcocoanativeinterface.h \
     qcocoaeventdispatcher.h \

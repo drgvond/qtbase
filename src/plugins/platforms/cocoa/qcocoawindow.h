@@ -53,6 +53,7 @@
 QT_FORWARD_DECLARE_CLASS(QCocoaWindow)
 
 @class QNSWindowDelegate;
+@class QInterstitialView;
 
 @interface QNSWindow : NSPanel {
 @public
@@ -188,6 +189,7 @@ public: // for QNSView
     QNSView *m_qtView;
     QNSWindow *m_nsWindow;
     QCocoaWindow *m_forwardWindow;
+    QInterstitialView *m_interstitialView;
 
     // TODO merge to one variable if possible
     bool m_contentViewIsEmbedded; // true if the m_contentView is actually embedded in a "foreign" NSView hiearchy

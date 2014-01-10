@@ -41,6 +41,7 @@
 #include "qcocoawindow.h"
 #include "qcocoaintegration.h"
 #include "qnswindowdelegate.h"
+#include "qinterstitialview.h"
 #include "qcocoaautoreleasepool.h"
 #include "qcocoaeventdispatcher.h"
 #include "qcocoaglcontext.h"
@@ -143,8 +144,21 @@ void printWindowHierarchy(NSWindow *win, NSWindow *current = nil, int indent = 1
 {
     // Prevent child NSWindows from becomming the key window in
     // order keep the active apperance of the top-level window.
-    if (!m_cocoaPlatformWindow || m_cocoaPlatformWindow->m_isNSWindowChild)
+    // We still need for look for the top-level NSWindow and
+    // make it key.
+    if (!m_cocoaPlatformWindow)
         return NO;
+    if (m_cocoaPlatformWindow->m_isNSWindowChild) {
+        NSWindow *topLevel = self.parentWindow;
+        while (topLevel.parentWindow)
+            topLevel = topLevel.parentWindow;
+        [topLevel makeKeyWindow];
+        // The toplevel window contains the interstitial view that will forward key
+        // events events to this child window. This way we can keep the toplevel
+        // window appearance as key window while receiving key events.
+        [topLevel makeFirstResponder:m_cocoaPlatformWindow->m_interstitialView];
+        return NO;
+    }
 
     // Only tool or dialog windows should become key:
     if (m_cocoaPlatformWindow && m_cocoaPlatformWindow->windowShouldBehaveAsPanel()) {
@@ -167,7 +181,8 @@ void printWindowHierarchy(NSWindow *win, NSWindow *current = nil, int indent = 1
 
     // Windows with a transient parent (such as combobox popup windows)
     // cannot become the main window:
-    if (!m_cocoaPlatformWindow || m_cocoaPlatformWindow->window()->transientParent())
+    if (!m_cocoaPlatformWindow || m_cocoaPlatformWindow->m_isNSWindowChild
+        || m_cocoaPlatformWindow->window()->transientParent())
         canBecomeMain = NO;
 
     if (m_cocoaPlatformWindow && m_cocoaPlatformWindow->windowShouldBehaveAsPanel())
@@ -1051,6 +1066,11 @@ void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
         m_nsWindowDelegate = 0;
     }
 
+    if (wasNSWindowChild && !m_isNSWindowChild) {
+        [m_interstitialView release];
+        m_interstitialView = nil;
+    }
+
     if (needsNSWindow) {
         if (!m_nsWindow)
             m_nsWindow = createNSWindow();
@@ -1103,6 +1123,15 @@ void QCocoaWindow::recreateWindow(const QPlatformWindow *parentWindow)
                 [m_parentCocoaWindow->m_nsWindow addChildWindow:m_nsWindow ordered:NSWindowAbove];
             siblings.append(this);
         }
+
+        if (!m_interstitialView) {
+            m_interstitialView = [[QInterstitialView alloc] initWithForwardingWindow:m_nsWindow];
+            NSWindow *topLevel = m_nsWindow.parentWindow;
+            while (topLevel.parentWindow)
+                topLevel = topLevel.parentWindow;
+            [topLevel.contentView addSubview:m_interstitialView];
+        }
+
         qDebug() << "recreated child nswindow" << QString::fromNSString([m_nsWindow description]);
         qDebug() << "parent nswindow" << QString::fromNSString([m_parentCocoaWindow->m_nsWindow description]);
         qDebug() << "";
